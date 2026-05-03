@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+data/raw/
+data/processed/
+results/predictions/
+artifacts/models/
+
+*.pt
+*.pth
+*.pkl
+*.joblib

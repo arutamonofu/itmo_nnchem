@@ -1,0 +1,6 @@
+-r ../requirements.txt
+
+# Extra dependency for scripts/models/train_cgcnn.py.
+# For CUDA builds, install PyTorch from https://pytorch.org/get-started/
+# before or instead of this CPU/default wheel.
+torch>=2.3,<3

@@ -1,0 +1,6 @@
+-r ../requirements.txt
+
+# Extra dependency for scripts/models/train_matgl.py.
+# MatGL >=2 defaults to a PyG/pure-PyTorch direction and does not require DGL
+# for the basic import/scaffold path.
+matgl>=2,<3

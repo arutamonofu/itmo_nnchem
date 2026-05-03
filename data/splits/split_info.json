@@ -1,0 +1,11 @@
+{
+  "split_id": "seed_42_80_10_10",
+  "random_seed": 42,
+  "n_total": 18928,
+  "n_train": 15142,
+  "n_val": 1893,
+  "n_test": 1893,
+  "n_train_2_5": 473,
+  "n_train_25": 4732,
+  "n_train_100": 15142
+}

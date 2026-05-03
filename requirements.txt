@@ -1,0 +1,7 @@
+numpy>=1.26,<2
+pandas>=2.2,<3
+scipy>=1.11,<1.16
+scikit-learn>=1.4,<1.8
+matminer>=0.9.3,<0.11
+pymatgen>=2024.5,<2027
+tqdm>=4.66,<5
