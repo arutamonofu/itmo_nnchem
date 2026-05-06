@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import argparse
 import sys
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+import torch
+from torch import nn
+import torch.nn.functional as F
+from torch.nn import Linear, BatchNorm1d
+from torch_geometric.loader import DataLoader as GeoDataLoader
+from torch_geometric.data import Data
+from torch_geometric.nn import CGConv, global_mean_pool
 
+# Добавляем пути к проекту
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
@@ -15,234 +23,200 @@ from src.metrics import compute_regression_metrics
 from src.project_data import make_train_val_test_dataframes
 from src.result_schema import make_result_row, ordered_result_frame
 
-try:
-    import torch
-    from torch import nn
-    from torch.utils.data import DataLoader, TensorDataset
-except ImportError:
-    torch = None
-    nn = None
-    DataLoader = None
-    TensorDataset = None
+# --- Настройка логирования ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+logger = logging.getLogger(__name__)
 
-
+# --- Глобальные константы (Твои настройки) ---
 ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
-MODEL_NAME = "cgcnn_scaffold"
+MODEL_NAME = "cgcnn_optimized"
 MODEL_FAMILY = "cgcnn"
 RESULT_FILE = "cgcnn.csv"
-NOTES = "CGCNN scaffold. Replace simple feature MLP with real crystal graph pipeline."
+NOTES = "CGCNN with RBF, BatchNorm and Residual connections."
 
-
+# --- Вспомогательные функции ---
 def fraction_to_name(train_fraction: float) -> str:
     return str(float(train_fraction)).replace(".", "_")
 
-
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="CGCNN starter scaffold.")
+    parser = argparse.ArgumentParser(description="Optimized CGCNN training.")
     parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--epochs", type=int, default=2)
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--device", default="cuda")
     return parser.parse_args()
-
 
 def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     try:
         return make_train_val_test_dataframes(train_fraction=train_fraction)
-    except FileNotFoundError as exc:
-        message = str(exc)
-        if "dataset.pkl" in message:
-            raise FileNotFoundError(
-                "data/processed/dataset.pkl not found. Run python scripts/01_load_dataset.py first."
-            ) from exc
-        raise FileNotFoundError("Split files not found. Run python scripts/02_make_splits.py first.") from exc
+    except Exception as exc:
+        logger.error(f"Error loading data: {exc}")
+        raise
 
+# --- Архитектура модели ---
+class RBFExpansion(nn.Module):
+    def __init__(self, dmin=0, dmax=8, steps=64):
+        super().__init__()
+        self.register_buffer("centers", torch.linspace(dmin, dmax, steps))
+        self.gamma = 1.0 / (steps / (dmax - dmin))**2
 
-def structure_features(structure) -> dict[str, float]:
-    composition = structure.composition
-    atomic_numbers = np.array([element.Z for element in composition.elements], dtype=float)
-    return {
-        "n_sites": float(structure.num_sites),
-        "volume": float(structure.volume),
-        "density": float(structure.density),
-        "num_unique_elements": float(len(composition.elements)),
-        "mean_atomic_number": float(atomic_numbers.mean()),
-        "std_atomic_number": float(atomic_numbers.std()),
-    }
+    def forward(self, edge_attr):
+        return torch.exp(-self.gamma * (edge_attr - self.centers)**2)
 
+class CGCNN(nn.Module):
+    def __init__(self, node_dim=100, hidden_dim=64, edge_dim=64):
+        super().__init__()
+        self.embedding = Linear(node_dim, hidden_dim)
+        self.rbf = RBFExpansion(steps=edge_dim)
+        
+        self.conv1 = CGConv(hidden_dim, dim=edge_dim)
+        self.bn1 = BatchNorm1d(hidden_dim)
+        self.conv2 = CGConv(hidden_dim, dim=edge_dim)
+        self.bn2 = BatchNorm1d(hidden_dim)
+        self.conv3 = CGConv(hidden_dim, dim=edge_dim)
+        self.bn3 = BatchNorm1d(hidden_dim)
+        
+        self.fc = nn.Sequential(
+            Linear(hidden_dim, 32),
+            nn.ReLU(),
+            Linear(32, 1)
+        )
 
-def featurize(df: pd.DataFrame) -> pd.DataFrame:
-    return pd.DataFrame([structure_features(structure) for structure in df["structure"]], index=df.index)
+    def forward(self, data):
+        x, edge_index, edge_attr, batch = data.x, data.edge_index, data.edge_attr, data.batch
+        edge_attr = self.rbf(edge_attr)
+        
+        x = F.relu(self.embedding(x))
+        x = x + F.relu(self.bn1(self.conv1(x, edge_index, edge_attr)))
+        x = x + F.relu(self.bn2(self.conv2(x, edge_index, edge_attr)))
+        x = x + F.relu(self.bn3(self.conv3(x, edge_index, edge_attr)))
+        
+        x = global_mean_pool(x, batch)
+        return self.fc(x).view(-1)
 
-
-if nn is not None:
-
-    class SimpleMLP(nn.Module):
-        def __init__(self, n_features: int) -> None:
-            super().__init__()
-            self.net = nn.Sequential(
-                nn.Linear(n_features, 64),
-                nn.ReLU(),
-                nn.Linear(64, 32),
-                nn.ReLU(),
-                nn.Linear(32, 1),
-            )
-
-        def forward(self, x):
-            return self.net(x).squeeze(-1)
-
-
-def train_feature_mlp(
-    *,
-    train_df: pd.DataFrame,
-    val_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    seed: int,
-    epochs: int,
-    batch_size: int,
-    lr: float,
-    device: str,
+# --- Основной цикл обучения ---
+def run_cgcnn_training(
+    *, train_df, val_df, test_df, seed, epochs, batch_size, lr, device,
 ) -> tuple[np.ndarray, dict[str, float]]:
     torch.manual_seed(seed)
-    x_train = featurize(train_df)
-    x_val = featurize(val_df)
-    x_test = featurize(test_df)
-    scaler = StandardScaler()
-    x_train_scaled = scaler.fit_transform(x_train).astype("float32")
-    x_val_scaled = scaler.transform(x_val).astype("float32")
-    x_test_scaled = scaler.transform(x_test).astype("float32")
-
-    y_train = train_df["target"].to_numpy(dtype="float32")
-    y_val = val_df["target"].to_numpy(dtype="float32")
-    train_dataset = TensorDataset(torch.from_numpy(x_train_scaled), torch.from_numpy(y_train))
-    loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
+    
     resolved_device = torch.device(device if torch.cuda.is_available() or device == "cpu" else "cpu")
-    model = SimpleMLP(x_train_scaled.shape[1]).to(resolved_device)
+    if "mps" in device and torch.backends.mps.is_available():
+        resolved_device = torch.device("mps")
+
+    t_mean = float(train_df["target"].mean())
+    t_std = float(train_df["target"].std())
+
+    def create_graphs(df):
+        graphs = []
+        for _, row in df.iterrows():
+            struct, target = row["structure"], row["target"]
+            z = torch.tensor([site.specie.Z for site in struct], dtype=torch.long)
+            x = F.one_hot(z, num_classes=100).to(torch.float)
+            neigh = struct.get_neighbor_list(r=8.0)
+            # Исправляем Warning через numpy
+            edge_index = torch.from_numpy(np.array([neigh[0], neigh[1]])).long()
+            edge_attr = torch.from_numpy(np.array(neigh[3])).float().unsqueeze(1)
+            graphs.append(Data(x=x, edge_index=edge_index, edge_attr=edge_attr, 
+                               y=torch.tensor([target], dtype=torch.float)))
+        return graphs
+
+    train_loader = GeoDataLoader(create_graphs(train_df), batch_size=batch_size, shuffle=True)
+    val_loader = GeoDataLoader(create_graphs(val_df), batch_size=batch_size)
+    test_loader = GeoDataLoader(create_graphs(test_df), batch_size=batch_size)
+
+    model = CGCNN().to(resolved_device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=5)
     loss_fn = nn.MSELoss()
 
-    model.train()
-    for _epoch in range(epochs):
-        for features, target in loader:
-            features = features.to(resolved_device)
-            target = target.to(resolved_device)
+    for epoch in range(epochs):
+        model.train()
+        epoch_loss = 0.0
+        for batch in train_loader:
+            batch = batch.to(resolved_device)
             optimizer.zero_grad()
-            loss = loss_fn(model(features), target)
+            y_pred = model(batch)
+            y_true_scaled = (batch.y - t_mean) / t_std
+            loss = loss_fn(y_pred, y_true_scaled)
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            epoch_loss += loss.item()
+        
+        avg_loss = epoch_loss / len(train_loader)
+        scheduler.step(avg_loss)
+        logger.info(f"Epoch {epoch+1}/{epochs} | Loss: {avg_loss:.6f} | LR: {optimizer.param_groups[0]['lr']:.2e}")
 
     model.eval()
+    val_pred, test_pred = [], []
     with torch.no_grad():
-        val_pred = model(torch.from_numpy(x_val_scaled).to(resolved_device)).cpu().numpy()
-        test_pred = model(torch.from_numpy(x_test_scaled).to(resolved_device)).cpu().numpy()
-    val_metrics = compute_regression_metrics(y_val, val_pred)
-    return test_pred, val_metrics
+        for b in val_loader:
+            p = model(b.to(resolved_device)) * t_std + t_mean
+            val_pred.extend(p.cpu().numpy())
+        for b in test_loader:
+            p = model(b.to(resolved_device)) * t_std + t_mean
+            test_pred.extend(p.cpu().numpy())
+            
+    val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), np.array(val_pred))
+    return np.array(test_pred), val_metrics
 
-
-def mean_baseline(train_df: pd.DataFrame, val_df: pd.DataFrame, test_df: pd.DataFrame) -> tuple[np.ndarray, dict[str, float]]:
-    train_mean = float(train_df["target"].mean())
-    val_pred = np.full(shape=len(val_df), fill_value=train_mean)
-    test_pred = np.full(shape=len(test_df), fill_value=train_mean)
-    val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), val_pred)
-    return test_pred, val_metrics
-
-
-def save_predictions(
-    *,
-    sample_ids: pd.Series,
-    y_true: np.ndarray,
-    y_pred: np.ndarray,
-    train_fraction: float,
-    seed: int,
-) -> str:
-    prediction_rel_path = f"results/predictions/{MODEL_NAME}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
-    prediction_path = project_path(*prediction_rel_path.split("/"))
-    prediction_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(
-        {
-            "sample_id": sample_ids.astype(int).to_numpy(),
-            "split": "test",
-            "y_true": y_true,
-            "y_pred": y_pred,
-        }
-    ).to_csv(prediction_path, index=False)
-    return prediction_rel_path
-
+# --- Сохранение результатов (Твои функции) ---
+def save_predictions(*, sample_ids, y_true, y_pred, train_fraction, seed) -> str:
+    rel_path = f"results/predictions/{MODEL_NAME}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
+    path = project_path(*rel_path.split("/"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame({"sample_id": sample_ids.astype(int).to_numpy(), "split": "test", 
+                  "y_true": y_true, "y_pred": y_pred}).to_csv(path, index=False)
+    return rel_path
 
 def save_result_row(row: dict[str, object]) -> Path:
     result_path = project_path("results", "raw", RESULT_FILE)
     result_path.parent.mkdir(parents=True, exist_ok=True)
-
     new_df = pd.DataFrame([row])
     if result_path.exists():
         old_df = pd.read_csv(result_path)
-        duplicate = (
-            (old_df["model"] == row["model"])
-            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
-            & (old_df["seed"].astype(int) == int(row["seed"]))
-            & (old_df["split_id"] == row["split_id"])
-        )
+        duplicate = ((old_df["model"] == row["model"]) & 
+                     (old_df["train_fraction"].astype(float) == float(row["train_fraction"])) & 
+                     (old_df["seed"].astype(int) == int(row["seed"])))
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
-
     ordered_result_frame(new_df).to_csv(result_path, index=False)
     return result_path
-
 
 def main() -> None:
     args = parse_args()
     train_df, val_df, test_df = load_data(args.train_fraction)
 
-    # TODO for CGCNN:
-    # 1. Convert pymatgen Structure objects to crystal graphs.
-    # 2. Build CGCNN Dataset and DataLoader.
-    # 3. Replace SimpleMLP with CGCNN model.
-    # 4. Use validation set for early stopping or model selection.
-    # 5. Keep final metrics on the fixed test set.
-    if torch is None:
-        print("PyTorch is not installed. Running dummy mean baseline inside CGCNN scaffold.")
-        y_pred, val_metrics = mean_baseline(train_df, val_df, test_df)
-    else:
-        print(
-            "This is a CGCNN training scaffold. Current implementation uses simple structure "
-            "features + MLP as a smoke test. Replace featurization and model with real CGCNN graph pipeline."
-        )
-        y_pred, val_metrics = train_feature_mlp(
-            train_df=train_df,
-            val_df=val_df,
-            test_df=test_df,
-            seed=args.seed,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            lr=args.lr,
-            device=args.device,
-        )
+    logger.info(f"Starting {MODEL_NAME} training on {args.device}...")
+    y_pred, val_metrics = run_cgcnn_training(
+        train_df=train_df, val_df=val_df, test_df=test_df,
+        seed=args.seed, epochs=args.epochs, batch_size=args.batch_size, 
+        lr=args.lr, device=args.device
+    )
 
     y_true = test_df["target"].to_numpy()
     metrics = compute_regression_metrics(y_true, y_pred)
+    
     predictions_path = save_predictions(
-        sample_ids=test_df["sample_id"],
-        y_true=y_true,
-        y_pred=y_pred,
-        train_fraction=args.train_fraction,
-        seed=args.seed,
+        sample_ids=test_df["sample_id"], y_true=y_true, y_pred=y_pred,
+        train_fraction=args.train_fraction, seed=args.seed
     )
+    
     result_row = make_result_row(
-        model=MODEL_NAME,
-        model_family=MODEL_FAMILY,
-        train_fraction=args.train_fraction,
-        seed=args.seed,
-        mae=metrics["mae"],
-        rmse=metrics["rmse"],
-        r2=metrics["r2"],
-        predictions_path=predictions_path,
-        notes=NOTES,
+        model=MODEL_NAME, model_family=MODEL_FAMILY,
+        train_fraction=args.train_fraction, seed=args.seed,
+        mae=metrics["mae"], rmse=metrics["rmse"], r2=metrics["r2"],
+        predictions_path=predictions_path, notes=NOTES
     )
     result_path = save_result_row(result_row)
 
-    print(f"Loaded dataset: {len(train_df) + len(val_df) + len(test_df)} samples")
+    print(f"\nLoaded dataset: {len(train_df) + len(val_df) + len(test_df)} samples")
     print(f"Train fraction: {args.train_fraction}")
     print(f"Train size: {len(train_df)}")
     print(f"Validation size: {len(val_df)}")
@@ -254,7 +228,6 @@ def main() -> None:
     print(f"R2: {metrics['r2']:.6f}")
     print(f"Saved predictions to: {predictions_path}")
     print(f"Saved result row to: {result_path}")
-
 
 if __name__ == "__main__":
     main()
