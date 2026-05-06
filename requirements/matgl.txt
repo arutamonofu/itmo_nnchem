@@ -3,4 +3,10 @@
 # Extra dependency for scripts/models/train_matgl.py.
 # MatGL >=2 defaults to a PyG/pure-PyTorch direction and does not require DGL
 # for the basic import/scaffold path.
-matgl>=2,<3
+matgl==3.0.1
+
+# Required for PyTorch Lightning Trainer and logging (added for fine-tuning pipeline)
+lightning==2.6.1
+
+# Required for downloading pre-trained models from GitHub
+requests==2.33.1
