@@ -14,6 +14,10 @@ from src.result_schema import ALLOWED_TRAIN_FRACTIONS, ordered_result_frame, val
 REQUIRED_PREDICTION_COLUMNS = ["sample_id", "split", "y_true", "y_pred"]
 
 
+def is_empty_prediction_path(value: object) -> bool:
+    return pd.isna(value) or str(value).strip() == ""
+
+
 def validate_prediction_file(path: Path) -> None:
     if not path.exists():
         raise FileNotFoundError(f"predictions_path does not exist: {path}")
@@ -38,6 +42,8 @@ def validate_result_file(path: Path, expected_split_id: str) -> int:
         raise ValueError(f"{path} contains invalid train_fraction values: {sorted(invalid_fractions)}")
 
     for rel_path in ordered["predictions_path"]:
+        if is_empty_prediction_path(rel_path):
+            continue
         validate_prediction_file(project_path(*str(rel_path).split("/")))
 
     return len(ordered)

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import os
 import requests
 from pathlib import Path
 
@@ -28,6 +27,7 @@ try:
     from matgl.utils.training import ModelLightningModule
     from matgl.models import TransformedTargetModel
 except ImportError:
+    torch = None
     matgl = None
     MGLDataset = None
     TransformedTargetModel = None
@@ -49,13 +49,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--epochs", type=int, default=None, help="Smoke-test alias: sets both training phases")
     parser.add_argument("--epochs-1", type=int, default=15, help="Epochs for Phase 1 (frozen backbone)")
     parser.add_argument("--epochs-2", type=int, default=50, help="Epochs for Phase 2 (unfrozen)")
     parser.add_argument("--lr-1", type=float, default=1e-3, help="Learning rate for Phase 1")
     parser.add_argument("--lr-2", type=float, default=1e-5, help="Learning rate for Phase 2")
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    default_device = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
+    parser.add_argument("--device", default=default_device)
     parser.add_argument("--pretrained-model", default="MEGNet-MP-2018.6.1-Eform")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.epochs is not None:
+        args.epochs_1 = args.epochs
+        args.epochs_2 = args.epochs
+    return args
 
 
 def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:

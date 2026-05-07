@@ -23,8 +23,8 @@ ALLOWED_MODELS = ["rf", "xgb"]
 ALLOWED_FEATURE_SETS = ["starter", "expanded"]
 
 MODEL_FAMILY = "descriptor_baseline"
-RESULT_FILE = "polina_descriptor_baseline.csv"
-DIAGNOSTICS_FILE = "polina_descriptor_diagnostics.csv"
+RESULT_FILE = "descriptor_baseline.csv"
+DIAGNOSTICS_FILE = "descriptor_diagnostics.csv"
 
 
 def fraction_to_name(train_fraction: float) -> str:

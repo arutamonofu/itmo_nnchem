@@ -7,13 +7,22 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import torch
-from torch import nn
-import torch.nn.functional as F
-from torch.nn import Linear, BatchNorm1d
-from torch_geometric.loader import DataLoader as GeoDataLoader
-from torch_geometric.data import Data
-from torch_geometric.nn import CGConv, global_mean_pool
+try:
+    import torch
+    from torch import nn
+    import torch.nn.functional as F
+    from torch.nn import Linear, BatchNorm1d
+    from torch_geometric.loader import DataLoader as GeoDataLoader
+    from torch_geometric.data import Data
+    from torch_geometric.nn import CGConv, global_mean_pool
+except ImportError as exc:
+    print(
+        "CGCNN dependencies are required. Install them with: "
+        "pip install -r requirements/cgcnn.txt",
+        file=sys.stderr,
+    )
+    print(f"Missing dependency: {exc.name}", file=sys.stderr)
+    sys.exit(1)
 
 # Добавляем пути к проекту
 sys.path.append(str(Path(__file__).resolve().parents[2]))
