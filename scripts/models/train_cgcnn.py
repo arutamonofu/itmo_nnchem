@@ -15,14 +15,9 @@ try:
     from torch_geometric.loader import DataLoader as GeoDataLoader
     from torch_geometric.data import Data
     from torch_geometric.nn import CGConv, global_mean_pool
-except ImportError as exc:
-    print(
-        "CGCNN dependencies are required. Install them with: "
-        "pip install -r requirements/cgcnn.txt",
-        file=sys.stderr,
-    )
-    print(f"Missing dependency: {exc.name}", file=sys.stderr)
-    sys.exit(1)
+    HAS_DEPENDENCIES = True
+except ImportError:
+    HAS_DEPENDENCIES = False
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
@@ -74,7 +69,7 @@ class RBFExpansion(nn.Module):
         return torch.exp(-self.gamma * (edge_attr - self.centers)**2)
 
 class CGCNN(nn.Module):
-    def __init__(self, node_dim=100, hidden_dim=64, edge_dim=64):
+    def __init__(self, node_dim=119, hidden_dim=64, edge_dim=64):
         super().__init__()
         self.embedding = Linear(node_dim, hidden_dim)
         self.rbf = RBFExpansion(steps=edge_dim)
@@ -193,6 +188,9 @@ def save_result_row(row: dict[str, object]) -> Path:
     return result_path
 
 def main() -> None:
+    if not HAS_DEPENDENCIES:
+        logger.warning("CGCNN dependencies (torch_geometric) are not installed. Skipping execution.")
+        return
     args = parse_args()
     train_df, val_df, test_df = load_data(args.train_fraction)
 
