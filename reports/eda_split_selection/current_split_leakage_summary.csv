@@ -1,0 +1,4 @@
+group_key,n_train_groups,n_val_groups,n_test_groups,n_groups_train_test_overlap,n_groups_train_val_overlap,n_groups_val_test_overlap,test_objects_seen_in_train_count,test_objects_seen_in_train_fraction
+reduced_formula,9177,1806,1785,1442,1481,199,1442,0.7617538298996303
+element_set,7933,1758,1729,1486,1524,281,1569,0.8288431061806656
+anonymous_formula,5,5,5,5,5,5,1893,1.0

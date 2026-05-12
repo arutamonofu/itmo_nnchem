@@ -1,0 +1,4 @@
+candidate,n_all_elements,n_train_elements,n_test_elements,n_test_elements_absent_from_train,test_elements_absent_from_train
+random_iid,56,56,56,0,
+group_reduced_formula,56,56,56,0,
+group_element_set,56,56,56,0,

@@ -1,0 +1,17 @@
+file,n_rows,columns,n_unique_sample_id,n_duplicate_sample_id
+data/splits/split_assignments.csv,18928.0,"sample_id,split,in_train_2_5,in_train_25,in_train_100",18928,0.0
+data/splits/test_indices.csv,1893.0,sample_id,1893,0.0
+data/splits/train_100_indices.csv,15142.0,sample_id,15142,0.0
+data/splits/train_25_indices.csv,4732.0,sample_id,4732,0.0
+data/splits/train_2_5_indices.csv,473.0,sample_id,473,0.0
+data/splits/train_indices.csv,15142.0,sample_id,15142,0.0
+data/splits/val_indices.csv,1893.0,sample_id,1893,0.0
+data/splits/split_info.json,,split_id,seed_42_80_10_10,
+data/splits/split_info.json,,random_seed,42,
+data/splits/split_info.json,,n_total,18928,
+data/splits/split_info.json,,n_train,15142,
+data/splits/split_info.json,,n_val,1893,
+data/splits/split_info.json,,n_test,1893,
+data/splits/split_info.json,,n_train_2_5,473,
+data/splits/split_info.json,,n_train_25,4732,
+data/splits/split_info.json,,n_train_100,15142,

@@ -1,0 +1,17 @@
+metric,value
+dataset_name,matbench_perovskites
+n_objects,18928
+columns,"sample_id,structure,target"
+structure_format,Structure
+target_column,target
+target_unit,eV/unit cell
+missing_sample_id,0
+missing_structure,0
+missing_target,0
+duplicated_sample_id,0
+duplicated_reduced_formula_rows,9282
+duplicated_formula_rows,9282
+duplicated_structure_hash_rows,0
+n_unique_reduced_formula,9646
+n_unique_element_set,8268
+n_unique_anonymous_formula,5
