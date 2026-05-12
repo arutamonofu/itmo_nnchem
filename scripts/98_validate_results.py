@@ -7,8 +7,8 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.data_io import load_config, project_path
-from src.result_schema import ALLOWED_TRAIN_FRACTIONS, ordered_result_frame, validate_result_rows
+from src.data_io import project_path
+from src.result_schema import ordered_result_frame, validate_result_rows
 
 
 REQUIRED_PREDICTION_COLUMNS = ["sample_id", "split", "y_true", "y_pred"]
@@ -28,18 +28,18 @@ def validate_prediction_file(path: Path) -> None:
         raise ValueError(f"{path} is missing prediction columns: {missing}")
 
 
-def validate_result_file(path: Path, expected_split_id: str) -> int:
+def validate_result_file(path: Path) -> int:
     df = pd.read_csv(path)
     validate_result_rows(df, source=path)
     ordered = ordered_result_frame(df)
 
-    invalid_split_ids = set(ordered["split_id"]) - {expected_split_id}
-    if invalid_split_ids:
-        raise ValueError(f"{path} contains invalid split_id values: {sorted(invalid_split_ids)}")
+    invalid_budget_names = ordered["budget_name"].isna() | (ordered["budget_name"].astype(str).str.strip() == "")
+    if invalid_budget_names.any():
+        raise ValueError(f"{path} contains empty budget_name values")
 
-    invalid_fractions = set(ordered["train_fraction"].astype(float)) - ALLOWED_TRAIN_FRACTIONS
-    if invalid_fractions:
-        raise ValueError(f"{path} contains invalid train_fraction values: {sorted(invalid_fractions)}")
+    invalid_budget_sizes = ordered["train_budget_samples"].astype(int) <= 0
+    if invalid_budget_sizes.any():
+        raise ValueError(f"{path} contains non-positive train_budget_samples")
 
     for rel_path in ordered["predictions_path"]:
         if is_empty_prediction_path(rel_path):
@@ -50,7 +50,6 @@ def validate_result_file(path: Path, expected_split_id: str) -> int:
 
 
 def main() -> None:
-    config = load_config()
     raw_dir = project_path("results", "raw")
     result_files = sorted(raw_dir.glob("*.csv"))
     if not result_files:
@@ -59,7 +58,7 @@ def main() -> None:
     total_rows = 0
     for path in result_files:
         try:
-            total_rows += validate_result_file(path, expected_split_id=config["split_id"])
+            total_rows += validate_result_file(path)
         except Exception as exc:
             raise ValueError(f"Invalid result file {path}: {exc}") from exc
 

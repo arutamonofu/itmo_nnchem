@@ -11,8 +11,9 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
 from src.metrics import compute_regression_metrics
-from src.project_data import make_train_val_test_dataframes
+from src.project_data import make_train_val_test_dataframes_for_budget
 from src.result_schema import make_result_row, ordered_result_frame
+from src.training_cli import add_budget_arguments, requested_budget_names
 
 try:
     import torch
@@ -32,20 +33,16 @@ except ImportError:
     TransformedTargetModel = None
 
 
-ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
+ALLOWED_SPLIT_STRATEGIES = ["random_iid", "element_set"]
 MODEL_NAME = "matgl_megnet"
 MODEL_FAMILY = "matgl"
 RESULT_FILE = "matgl.csv"
 NOTES = "Fine-tuning of pre-trained MEGNet (2 phases: frozen backbone -> full unfreeze)."
 
 
-def fraction_to_name(train_fraction: float) -> str:
-    return str(float(train_fraction)).replace(".", "_")
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MatGL MEGNet fine-tuning script.")
-    parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
+    add_budget_arguments(parser)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--epochs", type=int, default=None, help="Smoke-test alias: sets both training phases")
@@ -56,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     default_device = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
     parser.add_argument("--device", default=default_device)
     parser.add_argument("--pretrained-model", default="MEGNet-Eform-MP-2018.6.1")
+    parser.add_argument("--split-strategy", choices=ALLOWED_SPLIT_STRATEGIES, default="random_iid")
     args = parser.parse_args()
     if args.epochs is not None:
         args.epochs_1 = args.epochs
@@ -63,9 +61,12 @@ def parse_args() -> argparse.Namespace:
     return args
 
 
-def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(budget_name: str, split_strategy: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     try:
-        return make_train_val_test_dataframes(train_fraction=train_fraction)
+        return make_train_val_test_dataframes_for_budget(
+            budget_name=budget_name,
+            split_strategy=split_strategy,
+        )
     except FileNotFoundError as exc:
         message = str(exc)
         if "dataset.pkl" in message:
@@ -111,7 +112,8 @@ def train_model(
     args: argparse.Namespace, 
     train_dataset: "MGLDataset", 
     val_dataset: "MGLDataset", 
-    test_dataset: "MGLDataset"
+    test_dataset: "MGLDataset",
+    budget_name: str,
 ) -> "TransformedTargetModel":
     train_loader, val_loader, test_loader = MGLDataLoader(
         train_data=train_dataset,
@@ -127,7 +129,7 @@ def train_model(
     data_mean = loaded_model.transformer.mean
     data_std = loaded_model.transformer.std
 
-    print(f'Model fine-tuning with {args.train_fraction} train fraction.')
+    print(f'Model fine-tuning with {budget_name} training budget.')
     print(f'\nPhase 1: Training output layer (frozen backbone), lr={args.lr_1}, epochs={args.epochs_1}...')
     for param in megnet_model.parameters():
         param.requires_grad = False
@@ -135,7 +137,7 @@ def train_model(
         param.requires_grad = True
 
     model_phase_1 = ModelLightningModule(model=megnet_model, data_mean=data_mean, data_std=data_std, lr=args.lr_1)
-    logger_1 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_1_train_fraction_{fraction_to_name(args.train_fraction)}')
+    logger_1 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_1_budget_{budget_name}')
     
     trainer_phase_1 = L.Trainer(max_epochs=args.epochs_1, accelerator='auto', devices=1, logger=logger_1)
     trainer_phase_1.fit(model=model_phase_1, train_dataloaders=train_loader, val_dataloaders=val_loader)
@@ -145,13 +147,13 @@ def train_model(
         param.requires_grad = True
 
     model_phase_2 = ModelLightningModule(model=megnet_model, data_mean=data_mean, data_std=data_std, lr=args.lr_2)
-    logger_2 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_2_train_fraction_{fraction_to_name(args.train_fraction)}')
+    logger_2 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_2_budget_{budget_name}')
     
     trainer_phase_2 = L.Trainer(max_epochs=args.epochs_2, accelerator='auto', devices=1, logger=logger_2)
     trainer_phase_2.fit(model=model_phase_2, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     final_model = TransformedTargetModel(model=megnet_model, target_transformer=loaded_model.transformer)
-    finetuned_model_path = project_path('artifacts', 'models', 'finetuned', f'MEGNet_train_fraction_{fraction_to_name(args.train_fraction)}')
+    finetuned_model_path = project_path('artifacts', 'models', 'finetuned', f'MEGNet_budget_{budget_name}')
     finetuned_model_path.mkdir(parents=True, exist_ok=True)
     final_model.save(finetuned_model_path)
     print(f"Model saved to {finetuned_model_path}")
@@ -176,10 +178,13 @@ def save_predictions(
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    train_fraction: float,
+    budget_name: str,
     seed: int,
+    split_strategy: str,
 ) -> str:
-    prediction_rel_path = f"results/predictions/{MODEL_NAME}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
+    prediction_rel_path = (
+        f"results/predictions/{split_strategy}_{MODEL_NAME}_{budget_name}_seed{seed}.csv"
+    )
     prediction_path = project_path(*prediction_rel_path.split("/"))
     prediction_path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(
@@ -201,9 +206,9 @@ def save_result_row(row: dict[str, object]) -> Path:
     if result_path.exists():
         old_df = pd.read_csv(result_path)
         duplicate = (
-            (old_df["model"] == row["model"])
-            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
-            & (old_df["seed"].astype(int) == int(row["seed"]))
+            (old_df["model_name"] == row["model_name"])
+            & (old_df["budget_name"] == row["budget_name"])
+            & (old_df["model_seed"].astype(int) == int(row["model_seed"]))
             & (old_df["split_id"] == row["split_id"])
         )
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
@@ -212,17 +217,12 @@ def save_result_row(row: dict[str, object]) -> Path:
     return result_path
 
 
-def main() -> None:
-    args = parse_args()
-
-    if matgl is None:
-        raise ImportError("MatGL, PyTorch and Lightning dependencies are required. Install them first.")
-    
-    train_df, val_df, test_df = load_data(args.train_fraction)
+def run_one_budget(args: argparse.Namespace, budget_name: str) -> None:
+    train_df, val_df, test_df = load_data(budget_name, args.split_strategy)
 
     train_dataset, val_dataset, test_dataset = prepare_datasets(train_df, val_df, test_df)
 
-    final_model = train_model(args, train_dataset, val_dataset, test_dataset)
+    final_model = train_model(args, train_dataset, val_dataset, test_dataset, budget_name)
 
     print("\nRunning inference...")
     y_val_pred = evaluate_model(final_model, val_df, args.device)
@@ -236,25 +236,27 @@ def main() -> None:
         sample_ids=test_df["sample_id"],
         y_true=y_true_test,
         y_pred=y_test_pred,
-        train_fraction=args.train_fraction,
+        budget_name=budget_name,
         seed=args.seed,
+        split_strategy=args.split_strategy,
     )
     
     result_row = make_result_row(
-        model=MODEL_NAME,
+        model_name=MODEL_NAME,
         model_family=MODEL_FAMILY,
-        train_fraction=args.train_fraction,
-        seed=args.seed,
+        budget_name=budget_name,
+        model_seed=args.seed,
         mae=test_metrics["mae"],
         rmse=test_metrics["rmse"],
         r2=test_metrics["r2"],
         predictions_path=predictions_path,
-        notes=NOTES
+        notes=NOTES,
+        split_strategy=args.split_strategy,
     )
     result_path = save_result_row(result_row)
 
     print(f"Loaded dataset: {len(train_df) + len(val_df) + len(test_df)} samples")
-    print(f"Train fraction: {args.train_fraction}")
+    print(f"Budget: {budget_name}")
     print(f"Train size: {len(train_df)}")
     print(f"Validation size: {len(val_df)}")
     print(f"Test size: {len(test_df)}")
@@ -265,6 +267,16 @@ def main() -> None:
     print(f"R2: {test_metrics['r2']:.6f}")
     print(f"Saved predictions to: {predictions_path}")
     print(f"Saved result row to: {result_path}")
+
+
+def main() -> None:
+    args = parse_args()
+
+    if matgl is None:
+        raise ImportError("MatGL, PyTorch and Lightning dependencies are required. Install them first.")
+
+    for budget_name in requested_budget_names(args):
+        run_one_budget(args, budget_name)
 
 
 if __name__ == "__main__":

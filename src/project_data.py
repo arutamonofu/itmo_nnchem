@@ -4,23 +4,18 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.data_io import load_config, load_indices, project_path
+from src.data_io import load_config, project_path, read_json
+from src.budgets import (
+    build_budgets_metadata,
+    budget_record,
+    load_budgets_metadata,
+    parse_training_budget_config,
+    write_budgets_metadata,
+)
+from src.splits import SPLIT_NAMES
 
 
-FRACTION_TO_SPLIT_FILE = {
-    0.025: "train_2_5_indices.csv",
-    0.25: "train_25_indices.csv",
-    1.0: "train_100_indices.csv",
-}
-
-
-def _normalize_train_fraction(train_fraction: float) -> float:
-    fraction = float(train_fraction)
-    for allowed in FRACTION_TO_SPLIT_FILE:
-        if abs(fraction - allowed) < 1e-12:
-            return allowed
-    allowed_values = sorted(FRACTION_TO_SPLIT_FILE)
-    raise ValueError(f"train_fraction must be one of {allowed_values}; got {train_fraction}")
+DEFAULT_SPLIT_STRATEGY = "random_iid"
 
 
 def load_dataset(path: Path | None = None, *, index_by_sample_id: bool = True) -> pd.DataFrame:
@@ -39,28 +34,131 @@ def load_dataset(path: Path | None = None, *, index_by_sample_id: bool = True) -
     return df
 
 
-def load_split_ids(train_fraction: float) -> tuple[list[int], list[int], list[int]]:
-    fraction = _normalize_train_fraction(train_fraction)
-    split_dir = project_path("data", "splits")
-    train_ids = load_indices(split_dir / FRACTION_TO_SPLIT_FILE[fraction])
-    val_ids = load_indices(split_dir / "val_indices.csv")
-    test_ids = load_indices(split_dir / "test_indices.csv")
-    return train_ids, val_ids, test_ids
+def _split_dir(split_strategy: str) -> Path:
+    return project_path("data", "splits", split_strategy)
 
 
-def make_train_val_test_dataframes(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def _budgets_path(split_strategy: str) -> Path:
+    return _split_dir(split_strategy) / "budgets.json"
+
+
+def resolve_split_strategy(split_strategy: str | None = None) -> str:
+    if split_strategy is not None:
+        return split_strategy
+    config = load_config()
+    return str(config.get("default_split_strategy", DEFAULT_SPLIT_STRATEGY))
+
+
+def load_split_assignment(split_strategy: str | None = None) -> pd.DataFrame:
+    split_strategy = resolve_split_strategy(split_strategy)
+    frames = []
+    split_dir = _split_dir(split_strategy)
+    for split in SPLIT_NAMES:
+        path = split_dir / f"{split}.csv"
+        if not path.exists():
+            raise FileNotFoundError(f"Missing split file: {path}")
+        frame = pd.read_csv(path)
+        expected_columns = ["sample_id", "split", "split_strategy"]
+        if list(frame.columns) != expected_columns:
+            raise ValueError(f"{path} must contain columns: {expected_columns}")
+        invalid_splits = set(frame["split"]) - {split}
+        if invalid_splits:
+            raise ValueError(f"{path} contains rows for other splits: {sorted(invalid_splits)}")
+        invalid_strategies = set(frame["split_strategy"]) - {split_strategy}
+        if invalid_strategies:
+            raise ValueError(f"{path} contains invalid split_strategy values: {sorted(invalid_strategies)}")
+        frames.append(frame)
+
+    assignment = pd.concat(frames, ignore_index=True)
+    if assignment["sample_id"].duplicated().any():
+        duplicated = sorted(assignment.loc[assignment["sample_id"].duplicated(), "sample_id"].unique())[:10]
+        raise ValueError(f"{split_strategy} contains duplicated sample_id values: {duplicated}")
+
+    return assignment.astype({"sample_id": int})
+
+
+def load_split_ids(split_strategy: str | None = None) -> tuple[list[int], list[int], list[int]]:
+    split_strategy = resolve_split_strategy(split_strategy)
+    assignment = load_split_assignment(split_strategy=split_strategy)
+    return tuple(
+        assignment.loc[assignment["split"] == split, "sample_id"].astype(int).tolist()
+        for split in SPLIT_NAMES
+    )
+
+
+def ensure_budgets_metadata(split_strategy: str | None = None) -> dict[str, object]:
+    split_strategy = resolve_split_strategy(split_strategy)
+    path = _budgets_path(split_strategy)
+    if path.exists():
+        return load_budgets_metadata(path)
+
+    config = load_config()
+    train_ids, _, _ = load_split_ids(split_strategy=split_strategy)
+    budget_config = parse_training_budget_config(config)
+    metadata = build_budgets_metadata(
+        train_ids=train_ids,
+        split_seed=int(config["random_seed"]),
+        base_budget=int(budget_config["base_budget"]),
+        growth_factor=int(budget_config["growth_factor"]),
+        min_final_growth_ratio=float(budget_config["min_final_growth_ratio"]),
+        sampling_strategy=str(budget_config["sampling_strategy"]),
+    )
+    write_budgets_metadata(metadata, path)
+    return metadata
+
+
+def load_budget_ids(
+    budget_name: str,
+    *,
+    split_strategy: str | None = None,
+) -> list[int]:
+    metadata = ensure_budgets_metadata(split_strategy=split_strategy)
+    record = budget_record(metadata, budget_name)
+    indices = record.get("indices")
+    if not isinstance(indices, list):
+        raise ValueError(f"Budget {budget_name!r} is missing indices")
+    return [int(sample_id) for sample_id in indices]
+
+
+def make_train_val_test_dataframes_for_budget(
+    budget_name: str,
+    *,
+    split_strategy: str | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    split_strategy = resolve_split_strategy(split_strategy)
     df = load_dataset(index_by_sample_id=True)
-    train_ids, val_ids, test_ids = load_split_ids(train_fraction)
+    _, val_ids, test_ids = load_split_ids(split_strategy=split_strategy)
+    train_ids = load_budget_ids(budget_name, split_strategy=split_strategy)
     return df.loc[train_ids].copy(), df.loc[val_ids].copy(), df.loc[test_ids].copy()
 
 
-def split_metadata(train_fraction: float) -> dict[str, int | str]:
-    train_df, val_df, test_df = make_train_val_test_dataframes(train_fraction)
+def budget_metadata(
+    budget_name: str,
+    *,
+    split_strategy: str | None = None,
+) -> dict[str, int | float | str]:
+    split_strategy = resolve_split_strategy(split_strategy)
+    metadata = ensure_budgets_metadata(split_strategy=split_strategy)
+    record = budget_record(metadata, budget_name)
     config = load_config()
+    metadata_path = _split_dir(split_strategy) / "split_metadata.json"
+    split_file_metadata = read_json(metadata_path) if metadata_path.exists() else {}
+    split_id = split_file_metadata.get(
+        "split_id",
+        f"{split_strategy}_seed_{int(config['random_seed'])}_80_10_10",
+    )
+    train_budget_samples = int(record["n_samples"])
+    full_train_size = int(metadata["full_train_size"])
     return {
-        "split_id": config["split_id"],
-        "n_train": int(len(train_df)),
-        "n_val": int(len(val_df)),
-        "n_test": int(len(test_df)),
-        "target_unit": config["target_unit"],
+        "split_id": str(split_id),
+        "n_train": train_budget_samples,
+        "n_val": int(split_file_metadata.get("val_size", 0)) or len(load_split_ids(split_strategy)[1]),
+        "n_test": int(split_file_metadata.get("test_size", 0)) or len(load_split_ids(split_strategy)[2]),
+        "target_unit": str(config["target_unit"]),
+        "budget_name": budget_name,
+        "train_budget_samples": train_budget_samples,
+        "train_fraction_actual": float(train_budget_samples / full_train_size),
+        "full_train_size": full_train_size,
+        "budget_strategy": str(metadata["budget_strategy"]),
+        "split_seed": int(metadata["split_seed"]),
     }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -8,52 +9,47 @@ import pandas as pd
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from src.data_io import load_config, load_indices, project_path
+from src.data_io import load_config, project_path
 from src.metrics import compute_regression_metrics
-from src.result_schema import ordered_result_frame
+from src.project_data import make_train_val_test_dataframes_for_budget
+from src.result_schema import make_result_row, ordered_result_frame
+from src.training_cli import add_budget_arguments, requested_budget_names
 
 
-FRACTION_TO_SPLIT_FILE = {
-    0.025: "train_2_5_indices.csv",
-    0.25: "train_25_indices.csv",
-    1.0: "train_100_indices.csv",
-}
-
-FRACTION_TO_FILE_TOKEN = {
-    0.025: "0_025",
-    0.25: "0_25",
-    1.0: "1_0",
-}
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Mean baseline smoke test.")
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument("--split-strategy", default=None)
+    add_budget_arguments(parser)
+    return parser.parse_args()
 
 
 def main() -> None:
+    args = parse_args()
     config = load_config()
-    seed = int(config["random_seed"])
-
-    dataset_path = project_path("data", "processed", "dataset.pkl")
-    if not dataset_path.exists():
-        raise FileNotFoundError("Missing data/processed/dataset.pkl. Run scripts/01_load_dataset.py first.")
-
-    df = pd.read_pickle(dataset_path).set_index("sample_id")
-    split_dir = project_path("data", "splits")
-    test_ids = load_indices(split_dir / "test_indices.csv")
-    val_ids = load_indices(split_dir / "val_indices.csv")
-    y_test = df.loc[test_ids, "target"].to_numpy()
+    seed = int(config["random_seed"] if args.seed is None else args.seed)
+    split_strategy = str(args.split_strategy or config.get("default_split_strategy", "random_iid"))
 
     rows = []
-    for fraction in config["train_fractions"]:
-        fraction = float(fraction)
-        train_ids = load_indices(split_dir / FRACTION_TO_SPLIT_FILE[fraction])
-        train_mean = float(df.loc[train_ids, "target"].mean())
-        y_pred = np.full(shape=len(test_ids), fill_value=train_mean)
+    args.split_strategy = split_strategy
+    for budget_name in requested_budget_names(args):
+        train_df, val_df, test_df = make_train_val_test_dataframes_for_budget(
+            budget_name=budget_name,
+            split_strategy=split_strategy,
+        )
+        train_mean = float(train_df["target"].mean())
+        y_test = test_df["target"].to_numpy()
+        y_pred = np.full(shape=len(test_df), fill_value=train_mean)
         metrics = compute_regression_metrics(y_test, y_pred)
 
-        prediction_rel_path = f"results/predictions/mean_baseline_{FRACTION_TO_FILE_TOKEN[fraction]}_seed{seed}.csv"
+        prediction_rel_path = (
+            f"results/predictions/{split_strategy}_mean_baseline_{budget_name}_seed{seed}.csv"
+        )
         prediction_path = project_path(*prediction_rel_path.split("/"))
         prediction_path.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(
             {
-                "sample_id": test_ids,
+                "sample_id": test_df["sample_id"].astype(int).to_numpy(),
                 "split": "test",
                 "y_true": y_test,
                 "y_pred": y_pred,
@@ -61,22 +57,18 @@ def main() -> None:
         ).to_csv(prediction_path, index=False)
 
         rows.append(
-            {
-                "model": "mean_baseline",
-                "model_family": "dummy",
-                "train_fraction": fraction,
-                "seed": seed,
-                "split_id": config["split_id"],
-                "mae": metrics["mae"],
-                "rmse": metrics["rmse"],
-                "r2": metrics["r2"],
-                "n_train": len(train_ids),
-                "n_val": len(val_ids),
-                "n_test": len(test_ids),
-                "target_unit": config["target_unit"],
-                "predictions_path": prediction_rel_path,
-                "notes": "Constant prediction equal to the selected train subset target mean.",
-            }
+            make_result_row(
+                model_name="mean_baseline",
+                model_family="dummy",
+                budget_name=budget_name,
+                model_seed=seed,
+                mae=metrics["mae"],
+                rmse=metrics["rmse"],
+                r2=metrics["r2"],
+                predictions_path=prediction_rel_path,
+                notes="Constant prediction equal to the selected train subset target mean.",
+                split_strategy=split_strategy,
+            )
         )
 
     result_df = ordered_result_frame(pd.DataFrame(rows))

@@ -27,7 +27,9 @@ def main() -> None:
         frames.append(ordered_result_frame(df))
 
     summary = pd.concat(frames, ignore_index=True)
-    summary = summary.sort_values(["model_family", "model", "train_fraction", "seed"]).reset_index(drop=True)
+    summary = summary.sort_values(
+        ["model_family", "model_name", "train_budget_samples", "budget_name", "model_seed"]
+    ).reset_index(drop=True)
 
     output_path = project_path("results", "summary.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -5,7 +5,7 @@ data:
 	python scripts/02_make_splits.py
 
 smoke:
-	python scripts/03_smoke_mean_baseline.py
+	python scripts/03_smoke_mean_baseline.py --budgets all
 	python scripts/99_collect_results.py
 
 all: data smoke

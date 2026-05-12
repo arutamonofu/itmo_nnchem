@@ -2,7 +2,7 @@
 
 This repository contains a minimal reproducible data and results skeleton for an educational ML project on formation energy prediction with `matbench_perovskites`.
 
-The goal is to make all model comparisons use the same dataset, train / validation / test split, low-data train subsets, metrics, and result format. The test set is fixed and must not be changed. All models must report metrics on the same test set.
+The goal is to make all model comparisons use the same dataset, train / validation / test split, absolute training budgets, metrics, and result format. The test set is fixed and must not be changed. All models must report metrics on the same test set.
 
 ## Installation
 
@@ -81,14 +81,15 @@ data/processed/dataset.pkl
 data/processed/targets.csv
 data/processed/structures.json.gz
 data/processed/dataset_info.json
-data/splits/train_indices.csv
-data/splits/val_indices.csv
-data/splits/test_indices.csv
-data/splits/train_2_5_indices.csv
-data/splits/train_25_indices.csv
-data/splits/train_100_indices.csv
-data/splits/split_assignments.csv
-data/splits/split_info.json
+data/splits/random_iid/train.csv
+data/splits/random_iid/val.csv
+data/splits/random_iid/test.csv
+data/splits/element_set/train.csv
+data/splits/element_set/val.csv
+data/splits/element_set/test.csv
+data/splits/target_tails/target_bins.csv
+data/splits/target_tails/tail_thresholds.json
+data/splits/split_diagnostics.csv
 results/raw/mean_baseline.csv
 results/summary.csv
 ```
@@ -126,35 +127,78 @@ data/processed/structures.json.gz
 
 ## Split Contract
 
-The fixed split is configured in `configs/project_config.json`:
+Split generation is configured in `configs/project_config.json`:
 
 ```text
 random_seed = 42
+default_split_strategy = random_iid
 train / validation / test = 80% / 10% / 10%
-split_id = seed_42_80_10_10
 ```
 
 Main split files:
 
 ```text
-data/splits/train_indices.csv
-data/splits/val_indices.csv
-data/splits/test_indices.csv
+data/splits/random_iid/train.csv
+data/splits/random_iid/val.csv
+data/splits/random_iid/test.csv
+data/splits/element_set/train.csv
+data/splits/element_set/val.csv
+data/splits/element_set/test.csv
 ```
 
-Low-data train subsets:
+Each split file contains:
 
 ```text
-data/splits/train_2_5_indices.csv
-data/splits/train_25_indices.csv
-data/splits/train_100_indices.csv
+sample_id
+split
+split_strategy
 ```
 
-The low-data subsets are sampled only from the training pool and are nested:
+Available split strategies:
 
 ```text
-train_2_5 subset train_25 subset train_100
+random_iid   independent random split of individual samples
+element_set  grouped split by sorted unique chemical element set
 ```
+
+For `element_set`, a material group such as `Ba-O-Ti` appears in exactly one of train, validation, or test. The test split contains unseen element combinations, not necessarily unseen individual elements.
+
+Target-tail labels are saved separately for evaluation:
+
+```text
+data/splits/target_tails/target_bins.csv
+data/splits/target_tails/tail_thresholds.json
+```
+
+`target_bins.csv` contains:
+
+```text
+sample_id,target,target_bin_10,target_bin_5
+```
+
+`target_tail_eval` is an evaluation slice, not a deployment-realistic train/test split, because it uses the target value to define the slice.
+
+Training sizes are treated as absolute labeling budgets rather than percentages of the benchmark. We start from a small pilot budget of 500 labeled structures and repeatedly double the number of training samples to obtain a log-spaced learning curve. The sequence stops when the next budget would be too close to the full training set; the full train set is then added as the final upper-bound benchmark. This reflects a practical materials-screening scenario where the key constraint is the number of available DFT-labeled structures.
+
+Budget metadata is written next to each split strategy:
+
+```text
+data/splits/random_iid/budgets.json
+data/splits/element_set/budgets.json
+```
+
+For the current `random_iid` train size, expected budgets are:
+
+```text
+B500
+B1000
+B2000
+B4000
+B8000
+Bfull
+```
+
+Each budget is a deterministic nested subset of the original train split. Validation and test splits remain fixed for every budget.
 
 ## Result Format
 
@@ -167,7 +211,7 @@ results/raw/
 Required columns:
 
 ```text
-model,model_family,train_fraction,seed,split_id,mae,rmse,r2,n_train,n_val,n_test,target_unit,predictions_path,notes
+model_name,model_family,budget_name,train_budget_samples,train_fraction_actual,full_train_size,budget_strategy,split_seed,model_seed,split_id,mae,rmse,r2,n_train,n_val,n_test,target_unit,predictions_path,notes
 ```
 
 Allowed `model_family` values:
@@ -179,13 +223,18 @@ matgl
 dummy
 ```
 
-Allowed `train_fraction` values:
+Main budget identifiers:
 
 ```text
-0.025
-0.25
-1.0
+B500
+B1000
+B2000
+B4000
+B8000
+Bfull
 ```
+
+New comparisons should use `budget_name` and sort by `train_budget_samples`.
 
 Prediction files should be placed in `results/predictions/` with columns:
 
@@ -225,15 +274,17 @@ Start new experiments by copying:
 scripts/models/train_template.py
 ```
 
-The template accepts `--train-fraction` and `--seed`, loads the fixed splits, writes predictions, and writes one result row.
+The template accepts `--budget` or `--budgets`, `--seed`, and `--split-strategy`, loads the selected fixed split, writes predictions, and writes one result row per budget.
 
 Example commands:
 
 ```bash
-python scripts/models/train_template.py --train-fraction 0.025 --seed 42
-python scripts/models/train_descriptor_baseline.py --train-fraction 0.025 --seed 42
-python scripts/models/train_cgcnn.py --train-fraction 0.025 --seed 42 --epochs 2
-python scripts/models/train_matgl.py --train-fraction 0.025 --seed 42 --epochs 2
+python scripts/models/train_template.py --budget B500 --seed 42
+python scripts/models/train_descriptor_baseline.py --budget B500 --seed 42
+python scripts/models/train_descriptor_baseline.py --budgets B500,B2000,Bfull --seed 42
+python scripts/models/train_descriptor_baseline.py --budgets all --seed 42 --split-strategy element_set
+python scripts/models/train_cgcnn.py --budget B500 --seed 42 --epochs 2
+python scripts/models/train_matgl.py --budget B500 --seed 42 --epochs 2
 ```
 
 These scripts are starting points. CGCNN and MatGL scripts contain TODO placeholders and fallback behavior, so they still run when optional deep learning dependencies are not installed.

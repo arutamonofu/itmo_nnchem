@@ -14,21 +14,18 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
 from src.metrics import compute_regression_metrics
-from src.project_data import make_train_val_test_dataframes
+from src.project_data import make_train_val_test_dataframes_for_budget
 from src.result_schema import make_result_row, ordered_result_frame
+from src.training_cli import add_budget_arguments, requested_budget_names
 
 
-ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
 ALLOWED_MODELS = ["rf", "xgb"]
 ALLOWED_FEATURE_SETS = ["starter", "expanded"]
+ALLOWED_SPLIT_STRATEGIES = ["random_iid", "element_set"]
 
 MODEL_FAMILY = "descriptor_baseline"
 RESULT_FILE = "descriptor_baseline.csv"
 DIAGNOSTICS_FILE = "descriptor_diagnostics.csv"
-
-
-def fraction_to_name(train_fraction: float) -> str:
-    return str(float(train_fraction)).replace(".", "_")
 
 
 def model_name(model_kind: str, feature_set: str) -> str:
@@ -39,16 +36,20 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Descriptor baseline: RandomForest / XGBoost on structure-composition descriptors"
     )
-    parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
+    add_budget_arguments(parser)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--model", choices=ALLOWED_MODELS, default="rf")
     parser.add_argument("--feature-set", choices=ALLOWED_FEATURE_SETS, default="starter")
+    parser.add_argument("--split-strategy", choices=ALLOWED_SPLIT_STRATEGIES, default="random_iid")
     return parser.parse_args()
 
 
-def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(budget_name: str, split_strategy: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     try:
-        return make_train_val_test_dataframes(train_fraction=train_fraction)
+        return make_train_val_test_dataframes_for_budget(
+            budget_name=budget_name,
+            split_strategy=split_strategy,
+        )
     except FileNotFoundError as exc:
         message = str(exc)
         if "dataset.pkl" in message:
@@ -222,11 +223,12 @@ def save_predictions(
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    train_fraction: float,
+    budget_name: str,
     seed: int,
+    split_strategy: str,
 ) -> str:
     prediction_rel_path = (
-        f"results/predictions/{run_model_name}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
+        f"results/predictions/{split_strategy}_{run_model_name}_{budget_name}_seed{seed}.csv"
     )
     prediction_path = project_path(*prediction_rel_path.split("/"))
     prediction_path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,9 +253,9 @@ def save_result_row(row: dict[str, object]) -> Path:
     if result_path.exists():
         old_df = pd.read_csv(result_path)
         duplicate = (
-            (old_df["model"] == row["model"])
-            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
-            & (old_df["seed"].astype(int) == int(row["seed"]))
+            (old_df["model_name"] == row["model_name"])
+            & (old_df["budget_name"] == row["budget_name"])
+            & (old_df["model_seed"].astype(int) == int(row["model_seed"]))
             & (old_df["split_id"] == row["split_id"])
         )
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
@@ -270,10 +272,11 @@ def save_diagnostics_row(row: dict[str, object]) -> Path:
     if diagnostics_path.exists():
         old_df = pd.read_csv(diagnostics_path)
         duplicate = (
-            (old_df["model"] == row["model"])
+            (old_df["model_name"] == row["model_name"])
             & (old_df["feature_set"] == row["feature_set"])
-            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
-            & (old_df["seed"].astype(int) == int(row["seed"]))
+            & (old_df["split_strategy"] == row["split_strategy"])
+            & (old_df["budget_name"] == row["budget_name"])
+            & (old_df["model_seed"].astype(int) == int(row["model_seed"]))
         )
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
 
@@ -292,7 +295,7 @@ def print_metrics_table(
     *,
     run_model_name: str,
     feature_set: str,
-    train_fraction: float,
+    budget_name: str,
     n_features: int,
     train_metrics: dict[str, float],
     val_metrics: dict[str, float],
@@ -303,7 +306,7 @@ def print_metrics_table(
 ) -> None:
     print(f"Model: {run_model_name}")
     print(f"Feature set: {feature_set}")
-    print(f"Train fraction: {train_fraction}")
+    print(f"Budget: {budget_name}")
     print(f"Number of descriptors: {n_features}")
     print()
     print("Metrics:")
@@ -322,12 +325,10 @@ def print_metrics_table(
     print(f"Saved train/val/test diagnostics to: {diagnostics_path}")
 
 
-def main() -> None:
-    args = parse_args()
-
+def run_one_budget(args: argparse.Namespace, budget_name: str) -> None:
     run_model_name = model_name(args.model, args.feature_set)
 
-    train_df, val_df, test_df = load_data(args.train_fraction)
+    train_df, val_df, test_df = load_data(budget_name, args.split_strategy)
 
     x_train = featurize(train_df, args.feature_set)
     x_val = featurize(val_df, args.feature_set)
@@ -353,29 +354,35 @@ def main() -> None:
         sample_ids=test_df["sample_id"],
         y_true=y_test,
         y_pred=test_pred,
-        train_fraction=args.train_fraction,
+        budget_name=budget_name,
         seed=args.seed,
+        split_strategy=args.split_strategy,
     )
 
     result_row = make_result_row(
-        model=run_model_name,
+        model_name=run_model_name,
         model_family=MODEL_FAMILY,
-        train_fraction=args.train_fraction,
-        seed=args.seed,
+        budget_name=budget_name,
+        model_seed=args.seed,
         mae=test_metrics["mae"],
         rmse=test_metrics["rmse"],
         r2=test_metrics["r2"],
         predictions_path=predictions_path,
         notes=make_notes(args.model, args.feature_set, n_features=x_train.shape[1]),
+        split_strategy=args.split_strategy,
     )
     result_path = save_result_row(result_row)
 
     diagnostics_row = {
-        "model": run_model_name,
+        "model_name": run_model_name,
         "model_kind": args.model,
         "feature_set": args.feature_set,
-        "train_fraction": args.train_fraction,
-        "seed": args.seed,
+        "split_strategy": args.split_strategy,
+        "budget_name": budget_name,
+        "train_fraction_actual": result_row["train_fraction_actual"],
+        "train_budget_samples": result_row["train_budget_samples"],
+        "full_train_size": result_row["full_train_size"],
+        "model_seed": args.seed,
         "n_features": x_train.shape[1],
         "n_train": len(train_df),
         "n_val": len(val_df),
@@ -396,7 +403,7 @@ def main() -> None:
     print_metrics_table(
         run_model_name=run_model_name,
         feature_set=args.feature_set,
-        train_fraction=args.train_fraction,
+        budget_name=budget_name,
         n_features=x_train.shape[1],
         train_metrics=train_metrics,
         val_metrics=val_metrics,
@@ -405,6 +412,12 @@ def main() -> None:
         result_path=result_path,
         diagnostics_path=diagnostics_path,
     )
+
+
+def main() -> None:
+    args = parse_args()
+    for budget_name in requested_budget_names(args):
+        run_one_budget(args, budget_name)
 
 
 if __name__ == "__main__":

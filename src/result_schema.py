@@ -4,14 +4,19 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.project_data import split_metadata
+from src.project_data import budget_metadata
 
 
 REQUIRED_RESULT_COLUMNS = [
-    "model",
+    "model_name",
     "model_family",
-    "train_fraction",
-    "seed",
+    "budget_name",
+    "train_budget_samples",
+    "train_fraction_actual",
+    "full_train_size",
+    "budget_strategy",
+    "split_seed",
+    "model_seed",
     "split_id",
     "mae",
     "rmse",
@@ -25,18 +30,6 @@ REQUIRED_RESULT_COLUMNS = [
 ]
 
 ALLOWED_MODEL_FAMILIES = {"descriptor_baseline", "cgcnn", "matgl", "dummy"}
-ALLOWED_TRAIN_FRACTIONS = {0.025, 0.25, 1.0}
-USER_RESULT_COLUMNS = [
-    "model",
-    "model_family",
-    "train_fraction",
-    "seed",
-    "mae",
-    "rmse",
-    "r2",
-    "predictions_path",
-    "notes",
-]
 
 
 def missing_result_columns(df: pd.DataFrame) -> list[str]:
@@ -52,9 +45,17 @@ def validate_result_rows(df: pd.DataFrame, source: str | Path = "result rows") -
     if invalid_families:
         raise ValueError(f"{source} contains invalid model_family values: {sorted(invalid_families)}")
 
-    invalid_fractions = set(df["train_fraction"].astype(float)) - ALLOWED_TRAIN_FRACTIONS
-    if invalid_fractions:
-        raise ValueError(f"{source} contains invalid train_fraction values: {sorted(invalid_fractions)}")
+    if (df["train_budget_samples"].astype(int) <= 0).any():
+        raise ValueError(f"{source} contains non-positive train_budget_samples")
+
+    if (df["full_train_size"].astype(int) <= 0).any():
+        raise ValueError(f"{source} contains non-positive full_train_size")
+
+    if (df["train_fraction_actual"].astype(float) <= 0).any():
+        raise ValueError(f"{source} contains non-positive train_fraction_actual")
+
+    if df["budget_name"].astype(str).str.strip().eq("").any():
+        raise ValueError(f"{source} contains empty budget_name values")
 
 
 def ordered_result_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -64,26 +65,26 @@ def ordered_result_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 def make_result_row(
     *,
-    model: str,
+    model_name: str,
     model_family: str,
-    train_fraction: float,
-    seed: int,
+    budget_name: str,
+    model_seed: int,
     mae: float,
     rmse: float,
     r2: float,
     predictions_path: str,
     notes: str = "",
+    split_strategy: str | None = None,
 ) -> dict[str, object]:
     row = {
-        "model": model,
+        "model_name": model_name,
         "model_family": model_family,
-        "train_fraction": float(train_fraction),
-        "seed": int(seed),
+        "model_seed": int(model_seed),
         "mae": float(mae),
         "rmse": float(rmse),
         "r2": float(r2),
         "predictions_path": predictions_path,
         "notes": notes,
     }
-    row.update(split_metadata(train_fraction))
+    row.update(budget_metadata(budget_name, split_strategy=split_strategy))
     return row

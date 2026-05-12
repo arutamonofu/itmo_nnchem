@@ -1,0 +1,9 @@
+{
+  "split_strategy": "random_iid",
+  "split_id": "random_iid_seed_42_80_10_10",
+  "random_seed": 42,
+  "train_size": 15142,
+  "val_size": 1893,
+  "test_size": 1893,
+  "notes": "Independent random split of individual samples."
+}

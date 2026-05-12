@@ -21,6 +21,7 @@ sys.path.append(str(PROJECT_ROOT))
 
 from scripts.models.train_descriptor_baseline import featurize
 from src.data_io import project_path
+from src.budgets import generate_training_budgets
 from src.project_data import load_dataset
 
 
@@ -28,8 +29,6 @@ FIRST_DIR = project_path("reports", "eda_split_selection")
 OUT_DIR = FIRST_DIR / "iteration_3_budget_protocol"
 CANDIDATE_DIR = OUT_DIR / "candidate_splits"
 PRED_DIR = OUT_DIR / "baseline_predictions"
-BUDGETS: list[int | str] = [500, 1000, 2000, 4000, 8000, "full"]
-FIXED_BUDGETS = [500, 1000, 2000, 4000, 8000]
 SPLIT_STRATEGIES = ["random_iid", "group_element_set", "group_reduced_formula"]
 MAIN_STABILITY_STRATEGIES = ["random_iid", "group_element_set"]
 SEEDS = list(range(10))
@@ -112,6 +111,15 @@ def nested_budget_subsets(train: pd.DataFrame, budgets: list[int], seed: int) ->
     return out
 
 
+def generated_budget_values(full_train_size: int, *, include_full: bool = True) -> list[int | str]:
+    values: list[int | str] = []
+    for item in generate_training_budgets(full_train_size):
+        values.append("full" if bool(item["is_full"]) else int(item["n_samples"]))
+    if include_full:
+        return values
+    return [value for value in values if value != "full"]
+
+
 def budget_label(budget: int | str) -> str:
     return "full" if budget == "full" else str(budget)
 
@@ -130,7 +138,7 @@ def write_budget_definitions(metadata: pd.DataFrame, thresholds: dict[str, float
     for strategy in SPLIT_STRATEGIES:
         train, _val, _test = strategy_split_parts(strategy, metadata, thresholds)
         full_n = len(train)
-        for budget in BUDGETS:
+        for budget in generated_budget_values(full_n):
             requested = full_n if budget == "full" else int(budget)
             warning = "" if requested <= full_n else "requested_budget_exceeds_full_train_size"
             rows.append(
@@ -155,7 +163,7 @@ def create_candidate_files(metadata: pd.DataFrame, thresholds: dict[str, float])
         train, _val, _test = strategy_split_parts(strategy, metadata, thresholds)
         strategy_dir = CANDIDATE_DIR / strategy
         strategy_dir.mkdir(parents=True, exist_ok=True)
-        subsets = nested_budget_subsets(train, FIXED_BUDGETS, seed=42)
+        subsets = nested_budget_subsets(train, generated_budget_values(len(train), include_full=False), seed=42)
         for budget, subset in subsets.items():
             filename = f"train_budget_{budget}.csv" if budget != "full" else "train_full.csv"
             path = strategy_dir / filename
@@ -268,8 +276,8 @@ def run_budget_diagnostics(metadata: pd.DataFrame, thresholds: dict[str, float])
     rows = []
     for strategy in SPLIT_STRATEGIES:
         train, val, test = strategy_split_parts(strategy, metadata, thresholds)
-        subsets = nested_budget_subsets(train, FIXED_BUDGETS, seed=42)
-        for budget in BUDGETS:
+        subsets = nested_budget_subsets(train, generated_budget_values(len(train), include_full=False), seed=42)
+        for budget in generated_budget_values(len(train)):
             if budget not in subsets:
                 continue
             rows.append(subset_diagnostics_row(strategy, budget, subsets[budget], train, val, test, parsed_sets))
@@ -284,8 +292,8 @@ def run_budget_stability(metadata: pd.DataFrame, thresholds: dict[str, float]) -
     for strategy in MAIN_STABILITY_STRATEGIES:
         train, _val, test = strategy_split_parts(strategy, metadata, thresholds)
         for seed in SEEDS:
-            subsets = nested_budget_subsets(train, FIXED_BUDGETS, seed=seed)
-            for budget in FIXED_BUDGETS:
+            subsets = nested_budget_subsets(train, generated_budget_values(len(train), include_full=False), seed=seed)
+            for budget in generated_budget_values(len(train), include_full=False):
                 subset = subsets[budget]
                 jaccard = nearest_jaccard_stats(subset["element_set"], test["element_set"], parsed_sets)
                 rows.append(
@@ -348,10 +356,10 @@ def run_budget_baseline(df: pd.DataFrame, metadata: pd.DataFrame, thresholds: di
     rows = []
     for strategy in SPLIT_STRATEGIES:
         train, _val, test = strategy_split_parts(strategy, metadata, thresholds)
-        subsets = nested_budget_subsets(train, FIXED_BUDGETS, seed=42)
+        subsets = nested_budget_subsets(train, generated_budget_values(len(train), include_full=False), seed=42)
         y_test = test["target"].to_numpy()
         x_test = test[["sample_id"]].merge(feature_cache, on="sample_id", how="left").drop(columns=["sample_id"])
-        for budget in BUDGETS:
+        for budget in generated_budget_values(len(train)):
             if budget not in subsets:
                 continue
             subset = subsets[budget]

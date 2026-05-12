@@ -13,12 +13,14 @@ sys.path.append(str(PROJECT_ROOT))
 
 from src.data_io import project_path
 from src.metrics import compute_regression_metrics
-from src.project_data import make_train_val_test_dataframes
+from src.project_data import (
+    ensure_budgets_metadata,
+    make_train_val_test_dataframes_for_budget,
+)
 
 from scripts.models.train_descriptor_baseline import build_model, featurize
 
 
-TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
 MODELS = ["rf", "xgb"]
 FEATURE_SET = "expanded"
 SEED = 42
@@ -132,7 +134,7 @@ def maybe_subsample_validation(
 
 
 def run_feature_diagnostics(args: argparse.Namespace) -> None:
-    train_df, val_df, _test_df = make_train_val_test_dataframes(train_fraction=1.0)
+    train_df, val_df, _test_df = make_train_val_test_dataframes_for_budget("Bfull")
 
     x_train = featurize(train_df, FEATURE_SET)
     x_val = featurize(val_df, FEATURE_SET)
@@ -213,8 +215,10 @@ def run_feature_diagnostics(args: argparse.Namespace) -> None:
 def compare_corr_filtered_features(args: argparse.Namespace) -> None:
     rows = []
 
-    for train_fraction in TRAIN_FRACTIONS:
-        train_df, val_df, test_df = make_train_val_test_dataframes(train_fraction=train_fraction)
+    budget_names = list(ensure_budgets_metadata()["budgets"].keys())
+    full_train_size = len(make_train_val_test_dataframes_for_budget("Bfull")[0])
+    for budget_name in budget_names:
+        train_df, val_df, test_df = make_train_val_test_dataframes_for_budget(budget_name)
 
         x_train_full = featurize(train_df, FEATURE_SET)
         x_val_full = featurize(val_df, FEATURE_SET)
@@ -248,7 +252,9 @@ def compare_corr_filtered_features(args: argparse.Namespace) -> None:
                     {
                         "model_kind": model_kind,
                         "feature_variant": feature_variant,
-                        "train_fraction": train_fraction,
+                        "budget_name": budget_name,
+                        "train_budget_samples": len(train_df),
+                        "train_fraction_actual": len(train_df) / full_train_size,
                         "n_features": len(features),
                         "train_mae": train_metrics["mae"],
                         "val_mae": val_metrics["mae"],
@@ -259,7 +265,7 @@ def compare_corr_filtered_features(args: argparse.Namespace) -> None:
                     }
                 )
 
-    comparison = pd.DataFrame(rows).sort_values(["train_fraction", "test_mae"])
+    comparison = pd.DataFrame(rows).sort_values(["train_budget_samples", "test_mae"])
     out_path = project_path("results", "analysis", "descriptor_corr_filter_comparison.csv")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     comparison.to_csv(out_path, index=False)

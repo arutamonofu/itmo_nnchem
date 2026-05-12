@@ -11,11 +11,12 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
 from src.metrics import compute_regression_metrics
-from src.project_data import make_train_val_test_dataframes
+from src.project_data import make_train_val_test_dataframes_for_budget
 from src.result_schema import make_result_row, ordered_result_frame
+from src.training_cli import add_budget_arguments, requested_budget_names
 
 
-ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
+ALLOWED_SPLIT_STRATEGIES = ["random_iid", "element_set"]
 MODEL_NAME = "template_mean"
 MODEL_FAMILY = "dummy"
 RESULT_FILE = "template.csv"
@@ -23,20 +24,20 @@ PREDICTION_PREFIX = "template"
 NOTES = "Template script: mean target baseline. Replace training block with a real model."
 
 
-def fraction_to_name(train_fraction: float) -> str:
-    return str(float(train_fraction)).replace(".", "_")
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Minimal template for project training scripts.")
-    parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
+    add_budget_arguments(parser)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--split-strategy", choices=ALLOWED_SPLIT_STRATEGIES, default="random_iid")
     return parser.parse_args()
 
 
-def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(budget_name: str, split_strategy: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     try:
-        return make_train_val_test_dataframes(train_fraction=train_fraction)
+        return make_train_val_test_dataframes_for_budget(
+            budget_name=budget_name,
+            split_strategy=split_strategy,
+        )
     except FileNotFoundError as exc:
         message = str(exc)
         if "dataset.pkl" in message:
@@ -51,10 +52,13 @@ def save_predictions(
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    train_fraction: float,
+    budget_name: str,
     seed: int,
+    split_strategy: str,
 ) -> str:
-    prediction_rel_path = f"results/predictions/{PREDICTION_PREFIX}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
+    prediction_rel_path = (
+        f"results/predictions/{split_strategy}_{PREDICTION_PREFIX}_{budget_name}_seed{seed}.csv"
+    )
     prediction_path = project_path(*prediction_rel_path.split("/"))
     prediction_path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(
@@ -76,9 +80,9 @@ def save_result_row(row: dict[str, object], result_file: str) -> Path:
     if result_path.exists():
         old_df = pd.read_csv(result_path)
         duplicate = (
-            (old_df["model"] == row["model"])
-            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
-            & (old_df["seed"].astype(int) == int(row["seed"]))
+            (old_df["model_name"] == row["model_name"])
+            & (old_df["budget_name"] == row["budget_name"])
+            & (old_df["model_seed"].astype(int) == int(row["model_seed"]))
             & (old_df["split_id"] == row["split_id"])
         )
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
@@ -92,14 +96,14 @@ def print_summary(
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
     test_df: pd.DataFrame,
-    train_fraction: float,
+    budget_name: str,
     model: str,
     metrics: dict[str, float],
     predictions_path: str,
     result_path: Path,
 ) -> None:
     print(f"Loaded dataset: {len(train_df) + len(val_df) + len(test_df)} samples")
-    print(f"Train fraction: {train_fraction}")
+    print(f"Budget: {budget_name}")
     print(f"Train size: {len(train_df)}")
     print(f"Validation size: {len(val_df)}")
     print(f"Test size: {len(test_df)}")
@@ -111,9 +115,8 @@ def print_summary(
     print(f"Saved result row to: {result_path}")
 
 
-def main() -> None:
-    args = parse_args()
-    train_df, val_df, test_df = load_data(args.train_fraction)
+def run_one_budget(args: argparse.Namespace, budget_name: str) -> None:
+    train_df, val_df, test_df = load_data(budget_name, args.split_strategy)
 
     # TODO: Replace this block with real model training.
     train_mean = float(train_df["target"].mean())
@@ -129,31 +132,39 @@ def main() -> None:
         sample_ids=test_df["sample_id"],
         y_true=y_true,
         y_pred=y_pred,
-        train_fraction=args.train_fraction,
+        budget_name=budget_name,
         seed=args.seed,
+        split_strategy=args.split_strategy,
     )
     result_row = make_result_row(
-        model=MODEL_NAME,
+        model_name=MODEL_NAME,
         model_family=MODEL_FAMILY,
-        train_fraction=args.train_fraction,
-        seed=args.seed,
+        budget_name=budget_name,
+        model_seed=args.seed,
         mae=metrics["mae"],
         rmse=metrics["rmse"],
         r2=metrics["r2"],
         predictions_path=predictions_path,
         notes=NOTES,
+        split_strategy=args.split_strategy,
     )
     result_path = save_result_row(result_row, RESULT_FILE)
     print_summary(
         train_df=train_df,
         val_df=val_df,
         test_df=test_df,
-        train_fraction=args.train_fraction,
+        budget_name=budget_name,
         model=MODEL_NAME,
         metrics=metrics,
         predictions_path=predictions_path,
         result_path=result_path,
     )
+
+
+def main() -> None:
+    args = parse_args()
+    for budget_name in requested_budget_names(args):
+        run_one_budget(args, budget_name)
 
 
 if __name__ == "__main__":
