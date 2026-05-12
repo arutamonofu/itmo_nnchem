@@ -24,7 +24,6 @@ except ImportError as exc:
     print(f"Missing dependency: {exc.name}", file=sys.stderr)
     sys.exit(1)
 
-# Добавляем пути к проекту
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
@@ -32,7 +31,6 @@ from src.metrics import compute_regression_metrics
 from src.project_data import make_train_val_test_dataframes
 from src.result_schema import make_result_row, ordered_result_frame
 
-# --- Настройка логирования ---
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -40,14 +38,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# --- Глобальные константы (Твои настройки) ---
 ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
 MODEL_NAME = "cgcnn_optimized"
 MODEL_FAMILY = "cgcnn"
 RESULT_FILE = "cgcnn.csv"
 NOTES = "CGCNN with RBF, BatchNorm and Residual connections."
 
-# --- Вспомогательные функции ---
 def fraction_to_name(train_fraction: float) -> str:
     return str(float(train_fraction)).replace(".", "_")
 
@@ -68,7 +64,6 @@ def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.Dat
         logger.error(f"Error loading data: {exc}")
         raise
 
-# --- Архитектура модели ---
 class RBFExpansion(nn.Module):
     def __init__(self, dmin=0, dmax=8, steps=64):
         super().__init__()
@@ -94,6 +89,7 @@ class CGCNN(nn.Module):
         self.fc = nn.Sequential(
             Linear(hidden_dim, 32),
             nn.ReLU(),
+            nn.Dropout(p=0.1),
             Linear(32, 1)
         )
 
@@ -109,7 +105,6 @@ class CGCNN(nn.Module):
         x = global_mean_pool(x, batch)
         return self.fc(x).view(-1)
 
-# --- Основной цикл обучения ---
 def run_cgcnn_training(
     *, train_df, val_df, test_df, seed, epochs, batch_size, lr, device,
 ) -> tuple[np.ndarray, dict[str, float]]:
@@ -127,7 +122,7 @@ def run_cgcnn_training(
         for _, row in df.iterrows():
             struct, target = row["structure"], row["target"]
             z = torch.tensor([site.specie.Z for site in struct], dtype=torch.long)
-            x = F.one_hot(z, num_classes=100).to(torch.float)
+            x = F.one_hot(z, num_classes=119).to(torch.float)
             neigh = struct.get_neighbor_list(r=8.0)
             # Исправляем Warning через numpy
             edge_index = torch.from_numpy(np.array([neigh[0], neigh[1]])).long()
@@ -176,7 +171,6 @@ def run_cgcnn_training(
     val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), np.array(val_pred))
     return np.array(test_pred), val_metrics
 
-# --- Сохранение результатов (Твои функции) ---
 def save_predictions(*, sample_ids, y_true, y_pred, train_fraction, seed) -> str:
     rel_path = f"results/predictions/{MODEL_NAME}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
     path = project_path(*rel_path.split("/"))
