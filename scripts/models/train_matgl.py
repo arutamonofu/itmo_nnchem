@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import sys
 import os
-import requests
 from pathlib import Path
 
 import numpy as np
@@ -54,7 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr-1", type=float, default=1e-3, help="Learning rate for Phase 1")
     parser.add_argument("--lr-2", type=float, default=1e-5, help="Learning rate for Phase 2")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--pretrained-model", default="MEGNet-MP-2018.6.1-Eform")
+    parser.add_argument("--pretrained-model", default="MEGNet-Eform-MP-2018.6.1")
     return parser.parse_args()
 
 
@@ -102,31 +101,6 @@ def prepare_datasets(
     return train_dataset, val_dataset, test_dataset
 
 
-def download_matgl_model_from_git(model_name: str, model_dir: Path) -> Path | None:
-    base_url = f"https://raw.githubusercontent.com/materialyzeai/matgl/main/pretrained_models/{model_name}"
-    files =["model.json", "model.pt", "state.pt"]
-
-    model_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading model {model_name}...")
-
-    for file in files:
-        file_url = f"{base_url}/{file}"
-        response = requests.get(file_url)
-
-        if response.status_code == 200:
-            with open(model_dir / file, "wb") as f:
-                f.write(response.content)
-            print(f" Successfully installed: {file}")
-        else:
-            print(f" Error while downloading {file}. Status: {response.status_code}")
-            if response.status_code == 404:
-                print(" Check model name or path")
-            return None
-
-    print(f"Model saved in folder: {model_dir.absolute()}")
-    return model_dir
-
-
 def train_model(
     args: argparse.Namespace, 
     train_dataset: "MGLDataset", 
@@ -142,12 +116,7 @@ def train_model(
         num_workers=0
     )
 
-    original_model_path = project_path('artifacts', 'models', 'pretrained', args.pretrained_model)
-    download_path = download_matgl_model_from_git(args.pretrained_model, original_model_path)
-    if download_path is None:
-        raise RuntimeError("Failed to fetch pre-trained model.")
-
-    loaded_model = matgl.load_model(download_path)
+    loaded_model = matgl.load_model(args.pretrained_model)
     megnet_model = loaded_model.model
     data_mean = loaded_model.transformer.mean
     data_std = loaded_model.transformer.std
