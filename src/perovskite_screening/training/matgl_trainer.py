@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 
 import numpy as np
 import pandas as pd
@@ -27,7 +28,48 @@ NOTES = "Fine-tuning of pre-trained MEGNet with Huber loss and early stopping."
 
 
 def _model_config(config: ProjectConfig) -> dict[str, object]:
-    return dict(config.raw.get("model", {}).get("params", {}))
+    params = config.raw.get("model", {}).get("params", {})
+    if params is None:
+        return {}
+    if not isinstance(params, Mapping):
+        raise TypeError("model.params must be a mapping when provided")
+    return dict(params)
+
+
+def matgl_effective_params(config: ProjectConfig, *, strategy_patience: int | None = None) -> dict[str, object]:
+    params = _model_config(config)
+    effective: dict[str, object] = {
+        "strategy": str(params.get("strategy", "full")),
+        "pretrained_model_name": str(params.get("pretrained_model_name", PRETRAINED_MODEL_NAME)),
+        "epochs": int(params.get("epochs", 500)),
+        "batch_size": int(params.get("batch_size", 16)),
+        "cutoff": float(params.get("cutoff", 4.0)),
+        "device": str(params.get("device", "cuda")),
+        "num_workers": int(params.get("num_workers", 0)),
+        "progress_bar": bool(params.get("progress_bar", True)),
+    }
+    configured_patience = params.get("early_stopping_patience")
+    if configured_patience is not None:
+        effective["early_stopping_patience"] = int(configured_patience)
+    elif strategy_patience is not None:
+        effective["early_stopping_patience"] = int(strategy_patience)
+    return effective
+
+
+def _resolve_device_name(torch, requested_device: str) -> str:
+    device_name = requested_device.lower()
+    if device_name == "cuda" and not torch.cuda.is_available():
+        LOGGER.warning("MatGL requested device='cuda', but CUDA is unavailable. Falling back to CPU.")
+        return "cpu"
+    if device_name not in {"cuda", "cpu", "auto"}:
+        raise ValueError(f"Unsupported MatGL device: {requested_device!r}. Use 'cuda', 'cpu', or 'auto'.")
+    if device_name == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    return device_name
+
+
+def _lightning_accelerator(device_name: str) -> str:
+    return "gpu" if device_name == "cuda" else "cpu"
 
 
 def _save_predictions(
@@ -73,7 +115,7 @@ def train_matgl(
     EarlyStopping = deps["EarlyStopping"]
     CSVLogger = deps["CSVLogger"]
 
-    params = _model_config(config)
+    params = matgl_effective_params(config)
     strategy = str(params.get("strategy", "full"))
     batch_size = int(params.get("batch_size", 16))
     epochs = int(params.get("epochs", 500))
@@ -81,6 +123,7 @@ def train_matgl(
     pretrained_model_name = str(params.get("pretrained_model_name", PRETRAINED_MODEL_NAME))
     num_workers = int(params.get("num_workers", 0))
     progress_bar = bool(params.get("progress_bar", True))
+    device_name = _resolve_device_name(torch, str(params.get("device", "cuda")))
 
     L.seed_everything(seed, workers=True)
     train_dataset, val_dataset, test_dataset = prepare_matgl_datasets(
@@ -103,11 +146,13 @@ def train_matgl(
     y_train = train_dataset.labels["labels"]
     data_mean = float(np.mean(y_train))
     data_std = float(np.std(y_train)) or 1.0
-    optimizer, scheduler, base_lr, patience = configure_matgl_optimizer(
+    optimizer, scheduler, base_lr, strategy_patience = configure_matgl_optimizer(
         megnet_model,
         strategy=strategy,
         epochs=epochs,
     )
+    params = matgl_effective_params(config, strategy_patience=strategy_patience)
+    patience = int(params["early_stopping_patience"])
     lightning_model = ModelLightningModule(
         model=megnet_model,
         data_mean=data_mean,
@@ -122,14 +167,20 @@ def train_matgl(
     trainer = L.Trainer(
         max_epochs=epochs,
         log_every_n_steps=5,
-        accelerator="auto",
-        devices="auto",
+        accelerator=_lightning_accelerator(device_name),
+        devices=1,
         logger=CSVLogger(project_path("logs"), name=logger_name),
         callbacks=[EarlyStopping(monitor="val_MAE", patience=patience, mode="min")],
         deterministic=True,
         enable_progress_bar=progress_bar,
     )
-    LOGGER.info("Starting MatGL fine-tuning: strategy=%s, budget=%s", strategy, budget_name)
+    LOGGER.info(
+        "Starting MatGL fine-tuning: strategy=%s, patience=%s, budget=%s, device=%s",
+        strategy,
+        patience,
+        budget_name,
+        device_name,
+    )
     trainer.fit(model=lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
     final_model = make_transformed_target_model(
@@ -140,13 +191,13 @@ def train_matgl(
     model_path = project_path("outputs", "models", "finetuned", logger_name)
     model_path.mkdir(parents=True, exist_ok=True)
     final_model.save(model_path)
-    return final_model, str(model_path), strategy
+    return final_model, str(model_path), strategy, device_name, params
 
 
 def evaluate_matgl(model, df: pd.DataFrame, *, device_name: str) -> np.ndarray:
     deps = require_matgl_dependencies()
     torch = deps["torch"]
-    device = torch.device(device_name if device_name != "cuda" or torch.cuda.is_available() else "cpu")
+    device = torch.device(_resolve_device_name(torch, device_name))
     model.eval()
     model = model.to(device)
     return df["structure"].apply(lambda structure: float(model.predict_structure(structure).detach().cpu())).to_numpy()
@@ -161,9 +212,7 @@ def run_matgl_experiment(
 ) -> dict[str, object]:
     require_matgl_dependencies()
     data = load_experiment_data(budget_name=budget_name, split_strategy=split_strategy, config=config)
-    params = _model_config(config)
-    device_name = str(params.get("device", "cuda"))
-    final_model, model_path, strategy = train_matgl(
+    final_model, model_path, strategy, device_name, params = train_matgl(
         train_df=data.train,
         val_df=data.val,
         test_df=data.test,
@@ -198,7 +247,11 @@ def run_matgl_experiment(
         predictions_path=predictions_path,
         split_strategy=split_strategy,
         config=config,
-        notes=f"{NOTES} Strategy={strategy}; model_path={model_path}; validation MAE={val_metrics['mae']:.6f}.",
+        model_params=params,
+        notes=(
+            f"{NOTES} Strategy={strategy}; early_stopping_patience={params['early_stopping_patience']}; "
+            f"model_path={model_path}; validation MAE={val_metrics['mae']:.6f}."
+        ),
     )
     result_path = project_path("outputs", "runs", "matgl.csv")
     upsert_result_row(row, result_path)

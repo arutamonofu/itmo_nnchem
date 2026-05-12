@@ -1,6 +1,12 @@
 -r ../requirements.txt
 
-# Extra dependency for perovskite_screening.training.cgcnn_trainer.
-# For CUDA builds, install PyTorch from https://pytorch.org/get-started/
-# before or instead of this CPU/default wheel.
+# Extra dependencies for perovskite_screening.training.cgcnn_trainer.
+#
+# This file intentionally uses index-agnostic packages so it can be used in
+# CPU and CUDA environments. For CUDA-specific PyTorch wheels, install the
+# matching torch build from https://pytorch.org/get-started/ before running
+# this file, or follow the PyTorch Geometric install selector for your exact
+# torch/CUDA pair:
+# https://pytorch-geometric.readthedocs.io/en/latest/install/installation.html
 torch>=2.3,<3
+torch-geometric>=2.5,<3

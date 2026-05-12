@@ -25,6 +25,32 @@ pip install -r requirements/matgl.txt
 pip install -r requirements/matgl-dgl.txt
 ```
 
+### CGCNN Dependencies
+
+CGCNN uses PyTorch and PyTorch Geometric. Install its optional dependency set with:
+
+```bash
+pip install -r requirements/cgcnn.txt
+```
+
+The requirements file intentionally does not hard-code CUDA wheel indexes. For CUDA environments, first install the PyTorch build matching your driver/CUDA runtime from the official PyTorch selector, then use the PyTorch Geometric install selector if your torch/CUDA pair requires additional CUDA-specific wheels.
+
+Check the import surface used by the CGCNN model and trainer:
+
+```bash
+python -c "import torch; import torch_geometric; from torch_geometric.nn import CGConv; print('CGCNN deps OK')"
+```
+
+Run a minimal CGCNN smoke experiment after data preparation and splits exist:
+
+```bash
+perovskite-screening run \
+  --config configs/experiments/cgcnn.yaml \
+  --split-strategy random_iid \
+  --budget B500 \
+  --seed 42
+```
+
 ## CLI
 
 ```bash
@@ -48,6 +74,43 @@ perovskite-screening validate-results --runs-dir outputs/runs
 ```
 
 `make data`, `make smoke`, `make summary`, and `make validate` are thin wrappers around the same CLI.
+
+Run the reduced final protocol with:
+
+```bash
+make final-reduced
+```
+
+This prepares data, makes splits, runs XGB, CGCNN, and MatGL on `random_iid`
+and `element_set` with budgets `B500`, `B2000`, `B8000`, and `Bfull` at seed
+`42`, then collects and validates results. The protocol contains 24 expected
+runs:
+
+```text
+3 models x 2 split strategies x 4 budgets x 1 seed = 24 runs
+```
+
+For a smaller final-protocol smoke test, run:
+
+```bash
+make final-smoke
+```
+
+This runs XGB, CGCNN, and MatGL only on `random_iid`, `B500`, and seed `42`.
+Both targets collect the summary into `outputs/summary/results.csv`. Existing
+run outputs are not deleted automatically before collection.
+
+## Experiment Hyperparameters
+
+Final-run hyperparameters are fixed before running the reported budget suite. The
+pipeline does not perform per-budget or per-split tuning; each budget and split
+uses the same model settings for a given experiment config. Model parameters are
+stored in `configs/experiments/*.yaml` under `model.params`: XGB in
+`descriptor_xgb.yaml`, scratch-trained CGCNN in `cgcnn.yaml`, and MatGL
+fine-tuning in `matgl.yaml`. CGCNN monitors validation MAE after each epoch,
+uses validation MAE for scheduler updates and early stopping, and restores the
+best validation checkpoint before test inference. MatGL uses frozen fine-tuning
+in the final config, with early-stopping patience set at config level.
 
 ## Python API
 
@@ -130,3 +193,5 @@ outputs/summary/results.csv
 ```
 
 Required result columns are enforced by `perovskite-screening validate-results`.
+Each result row includes `model_params_json`, a JSON object with the effective
+model parameters used for the run.

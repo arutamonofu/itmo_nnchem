@@ -13,3 +13,13 @@ splits:
 
 model:
   family: matgl
+  params:
+    strategy: frozen
+    pretrained_model_name: MEGNet-Eform-MP-2018.6.1
+    epochs: 100
+    batch_size: 16
+    cutoff: 4.0
+    device: cuda
+    num_workers: 0
+    progress_bar: true
+    early_stopping_patience: 10

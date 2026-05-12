@@ -9,7 +9,10 @@ from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
 from perovskite_screening.training.cgcnn_trainer import run_cgcnn_experiment
-from perovskite_screening.training.descriptor_trainer import run_descriptor_experiment
+from perovskite_screening.training.descriptor_trainer import (
+    descriptor_model_params,
+    run_descriptor_experiment,
+)
 from perovskite_screening.training.matgl_trainer import run_matgl_experiment
 from perovskite_screening.training.trainer import load_experiment_data
 
@@ -84,6 +87,7 @@ def run_experiment(
             seed=seed,
             model_kind=str(model_config.get("kind", "rf")),
             feature_set=str(model_config.get("feature_set", "starter")),
+            model_params=descriptor_model_params(config),
         )
     if family == "cgcnn":
         return run_cgcnn_experiment(

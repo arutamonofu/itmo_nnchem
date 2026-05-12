@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -9,7 +10,7 @@ from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.features.descriptors import featurize
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
-from perovskite_screening.models.descriptor import build_descriptor_model
+from perovskite_screening.models.descriptor import build_descriptor_model, descriptor_effective_params
 from perovskite_screening.training.trainer import load_experiment_data
 
 
@@ -18,6 +19,15 @@ MODEL_FAMILY = "descriptor_baseline"
 
 def descriptor_model_name(model_kind: str, feature_set: str) -> str:
     return f"descriptor_{model_kind}_{feature_set}"
+
+
+def descriptor_model_params(config: ProjectConfig) -> dict[str, Any]:
+    params = config.raw.get("model", {}).get("params", {})
+    if params is None:
+        return {}
+    if not isinstance(params, Mapping):
+        raise TypeError("model.params must be a mapping when provided")
+    return dict(params)
 
 
 def _save_predictions(
@@ -52,13 +62,15 @@ def run_descriptor_experiment(
     seed: int,
     model_kind: str,
     feature_set: str,
+    model_params: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     data = load_experiment_data(budget_name=budget_name, split_strategy=split_strategy, config=config)
     x_train = featurize(data.train, feature_set)
     x_test = featurize(data.test, feature_set)
     y_train = data.train["target"].to_numpy()
     y_test = data.test["target"].to_numpy()
-    model = build_descriptor_model(model_kind, seed)
+    effective_params = descriptor_effective_params(model_kind, seed, model_params)
+    model = build_descriptor_model(model_kind, seed, params=model_params)
     model.fit(x_train, y_train)
     test_pred = model.predict(x_test)
     metrics = compute_regression_metrics(y_test, test_pred)
@@ -83,6 +95,7 @@ def run_descriptor_experiment(
         predictions_path=predictions_path,
         split_strategy=split_strategy,
         config=config,
+        model_params=effective_params,
         notes=f"{model_kind.upper()} descriptor baseline with feature_set={feature_set}; n_features={x_train.shape[1]}.",
     )
     result_path = project_path("outputs", "runs", "descriptor_baseline.csv")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pandas as pd
 
@@ -29,13 +30,26 @@ REQUIRED_RESULT_COLUMNS = [
     "n_test",
     "target_unit",
     "predictions_path",
+    "model_params_json",
     "notes",
 ]
 REQUIRED_PREDICTION_COLUMNS = ["sample_id", "split", "y_true", "y_pred"]
 ALLOWED_MODEL_FAMILIES = {"descriptor_baseline", "cgcnn", "matgl", "dummy"}
 
 
+def model_params_to_json(model_params: dict[str, object] | None) -> str:
+    return json.dumps(model_params or {}, sort_keys=True, separators=(",", ":"))
+
+
+def normalize_result_frame(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    if "model_params_json" not in normalized.columns:
+        normalized["model_params_json"] = "{}"
+    return normalized
+
+
 def validate_result_rows(df: pd.DataFrame, source: str | Path = "result rows") -> None:
+    df = normalize_result_frame(df)
     missing = [col for col in REQUIRED_RESULT_COLUMNS if col not in df.columns]
     if missing:
         raise ValueError(f"{source} is missing required columns: {missing}")
@@ -50,11 +64,19 @@ def validate_result_rows(df: pd.DataFrame, source: str | Path = "result rows") -
         raise ValueError(f"{source} contains non-positive train_fraction_actual")
     if df["budget_name"].astype(str).str.strip().eq("").any():
         raise ValueError(f"{source} contains empty budget_name values")
+    for value in df["model_params_json"].fillna("{}"):
+        try:
+            decoded = json.loads(str(value))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{source} contains invalid model_params_json: {value!r}") from exc
+        if not isinstance(decoded, dict):
+            raise ValueError(f"{source} contains non-object model_params_json: {value!r}")
 
 
 def ordered_result_frame(df: pd.DataFrame) -> pd.DataFrame:
-    validate_result_rows(df)
-    return df[REQUIRED_RESULT_COLUMNS]
+    normalized = normalize_result_frame(df)
+    validate_result_rows(normalized)
+    return normalized[REQUIRED_RESULT_COLUMNS]
 
 
 def budget_result_metadata(
@@ -98,6 +120,7 @@ def make_result_row(
     predictions_path: str,
     split_strategy: str,
     config: ProjectConfig,
+    model_params: dict[str, object] | None = None,
     notes: str = "",
 ) -> dict[str, object]:
     row: dict[str, object] = {
@@ -108,6 +131,7 @@ def make_result_row(
         "rmse": float(rmse),
         "r2": float(r2),
         "predictions_path": predictions_path,
+        "model_params_json": model_params_to_json(model_params),
         "notes": notes,
     }
     row.update(budget_result_metadata(budget_name, split_strategy=split_strategy, config=config))
