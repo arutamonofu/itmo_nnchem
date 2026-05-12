@@ -145,16 +145,16 @@ def run_feature_diagnostics(args: argparse.Namespace) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     correlated_pairs = find_correlated_pairs(x_train, args.corr_threshold)
-    correlated_pairs.to_csv(out_dir / "polina_descriptor_correlated_pairs.csv", index=False)
+    correlated_pairs.to_csv(out_dir / "descriptor_correlated_pairs.csv", index=False)
 
     kept_features = choose_corr_filtered_features(x_train, args.corr_threshold)
     removed_features = sorted(set(x_train.columns) - set(kept_features))
 
     pd.DataFrame({"kept_feature": kept_features}).to_csv(
-        out_dir / "polina_descriptor_corr095_kept_features.csv", index=False
+        out_dir / "descriptor_corr095_kept_features.csv", index=False
     )
     pd.DataFrame({"removed_feature": removed_features}).to_csv(
-        out_dir / "polina_descriptor_corr095_removed_features.csv", index=False
+        out_dir / "descriptor_corr095_removed_features.csv", index=False
     )
 
     print(f"Expanded features: {x_train.shape[1]}")
@@ -173,7 +173,7 @@ def run_feature_diagnostics(args: argparse.Namespace) -> None:
         model.fit(x_train, y_train)
 
         tree_imp = get_tree_feature_importance(model, list(x_train.columns))
-        tree_imp.to_csv(out_dir / f"polina_{model_kind}_expanded_tree_importance.csv", index=False)
+        tree_imp.to_csv(out_dir / f"descriptor_{model_kind}_expanded_tree_importance.csv", index=False)
 
         print(f"Top 15 tree importances for {model_kind.upper()} + expanded:")
         print(tree_imp.head(15).to_string(index=False))
@@ -203,7 +203,7 @@ def run_feature_diagnostics(args: argparse.Namespace) -> None:
             .sort_values("permutation_importance_mae_mean", ascending=False)
             .reset_index(drop=True)
         )
-        perm_imp.to_csv(out_dir / f"polina_{model_kind}_expanded_permutation_importance_val.csv", index=False)
+        perm_imp.to_csv(out_dir / f"descriptor_{model_kind}_expanded_permutation_importance_val.csv", index=False)
 
         print(f"Top 15 validation permutation importances for {model_kind.upper()} + expanded:")
         print(perm_imp.head(15).to_string(index=False))
@@ -260,7 +260,7 @@ def compare_corr_filtered_features(args: argparse.Namespace) -> None:
                 )
 
     comparison = pd.DataFrame(rows).sort_values(["train_fraction", "test_mae"])
-    out_path = project_path("results", "analysis", "polina_corr_filter_comparison.csv")
+    out_path = project_path("results", "analysis", "descriptor_corr_filter_comparison.csv")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     comparison.to_csv(out_path, index=False)
 
