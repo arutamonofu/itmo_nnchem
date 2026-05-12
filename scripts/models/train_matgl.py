@@ -11,13 +11,13 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from src.data_io import project_path
 from src.metrics import compute_regression_metrics
-from src.project_data import make_train_val_test_dataframes_for_budget
+from src.project_data import make_train_val_test_dataframes
 from src.result_schema import make_result_row, ordered_result_frame
-from src.training_cli import add_budget_arguments, requested_budget_names
 
 try:
     import torch
     import lightning as L
+    from lightning.pytorch.callbacks import EarlyStopping
     from lightning.pytorch.loggers import CSVLogger
 
     import matgl
@@ -28,45 +28,41 @@ try:
     from matgl.models import TransformedTargetModel
 except ImportError:
     torch = None
+    L = None
     matgl = None
     MGLDataset = None
     TransformedTargetModel = None
 
 
-ALLOWED_SPLIT_STRATEGIES = ["random_iid", "element_set"]
-MODEL_NAME = "matgl_megnet"
+ALLOWED_TRAIN_FRACTIONS = [0.025, 0.25, 1.0]
+ALLOWED_STRATEGIES = ["frozen", "differential", "full"]
+BASE_MODEL_NAME = "matgl_megnet"
+PRETRAINED_MODEL_NAME = "MEGNet-Eform-MP-2018.6.1"
 MODEL_FAMILY = "matgl"
 RESULT_FILE = "matgl.csv"
-NOTES = "Fine-tuning of pre-trained MEGNet (2 phases: frozen backbone -> full unfreeze)."
+NOTES = "Fine-tuning of pre-trained MEGNet."
+
+
+def fraction_to_name(train_fraction: float) -> str:
+    return str(float(train_fraction)).replace(".", "_")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="MatGL MEGNet fine-tuning script.")
-    add_budget_arguments(parser)
+    parser.add_argument("--train-fraction", type=float, required=True, choices=ALLOWED_TRAIN_FRACTIONS)
+    parser.add_argument("--strategy", type=str, required=True, choices=ALLOWED_STRATEGIES,
+                        help="Fine-tuning strategy: 'frozen' (head only), 'differential' (gradual unfreeze), 'full' (end-to-end)")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--epochs", type=int, default=None, help="Smoke-test alias: sets both training phases")
-    parser.add_argument("--epochs-1", type=int, default=15, help="Epochs for Phase 1 (frozen backbone)")
-    parser.add_argument("--epochs-2", type=int, default=50, help="Epochs for Phase 2 (unfrozen)")
-    parser.add_argument("--lr-1", type=float, default=1e-3, help="Learning rate for Phase 1")
-    parser.add_argument("--lr-2", type=float, default=1e-5, help="Learning rate for Phase 2")
+    parser.add_argument("--epochs", type=int, default=500, help="Max epochs. EarlyStopping will halt training earlier if no improvement")
     default_device = "cuda" if torch is not None and torch.cuda.is_available() else "cpu"
     parser.add_argument("--device", default=default_device)
-    parser.add_argument("--pretrained-model", default="MEGNet-Eform-MP-2018.6.1")
-    parser.add_argument("--split-strategy", choices=ALLOWED_SPLIT_STRATEGIES, default="random_iid")
-    args = parser.parse_args()
-    if args.epochs is not None:
-        args.epochs_1 = args.epochs
-        args.epochs_2 = args.epochs
-    return args
+    return parser.parse_args()
 
 
-def load_data(budget_name: str, split_strategy: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def load_data(train_fraction: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     try:
-        return make_train_val_test_dataframes_for_budget(
-            budget_name=budget_name,
-            split_strategy=split_strategy,
-        )
+        return make_train_val_test_dataframes(train_fraction=train_fraction)
     except FileNotFoundError as exc:
         message = str(exc)
         if "dataset.pkl" in message:
@@ -112,8 +108,7 @@ def train_model(
     args: argparse.Namespace, 
     train_dataset: "MGLDataset", 
     val_dataset: "MGLDataset", 
-    test_dataset: "MGLDataset",
-    budget_name: str,
+    test_dataset: "MGLDataset"
 ) -> "TransformedTargetModel":
     train_loader, val_loader, test_loader = MGLDataLoader(
         train_data=train_dataset,
@@ -124,39 +119,101 @@ def train_model(
         num_workers=0
     )
 
-    loaded_model = matgl.load_model(args.pretrained_model)
+    loaded_model = matgl.load_model(PRETRAINED_MODEL_NAME)
     megnet_model = loaded_model.model
-    data_mean = loaded_model.transformer.mean
-    data_std = loaded_model.transformer.std
+    y_train = train_dataset.labels["labels"]
+    data_mean = float(np.mean(y_train))
+    data_std = float(np.std(y_train))
 
-    print(f'Model fine-tuning with {budget_name} training budget.')
-    print(f'\nPhase 1: Training output layer (frozen backbone), lr={args.lr_1}, epochs={args.epochs_1}...')
-    for param in megnet_model.parameters():
-        param.requires_grad = False
-    for param in megnet_model.output_proj.parameters():
-        param.requires_grad = True
+    print(f'Model fine-tuning with {args.train_fraction} train fraction.')
+    if args.strategy == "frozen":
+        print("Strategy: 'Frozen' -> Frozen graph layers, only MLP-head train (output_proj)")
+        for param in megnet_model.parameters():
+            param.requires_grad = False
+        for param in megnet_model.output_proj.parameters():
+            param.requires_grad = True
+        
+        optimizer = torch.optim.AdamW(
+            filter(lambda p: p.requires_grad, megnet_model.parameters()), 
+            lr=1e-3, 
+            weight_decay=1e-5
+        )
+        patience = 30
+        base_lr = 1e-3
+        
+    elif args.strategy == "differential":
+        print("Strategy: 'Differential LRs' -> Everything is defrosted but graph layers are learning 100 times slower than MLP")
+        for param in megnet_model.parameters():
+            param.requires_grad = True
+        
+        param_groups =[
+            {"params": megnet_model.embedding.parameters(), "lr": 1e-5},
+            {"params": megnet_model.edge_encoder.parameters(), "lr": 1e-5},
+            {"params": megnet_model.node_encoder.parameters(), "lr": 1e-5},
+            {"params": megnet_model.state_encoder.parameters(), "lr": 1e-5},
+            {"params": megnet_model.blocks.parameters(), "lr": 1e-5},
+            {"params": megnet_model.edge_s2s.parameters(), "lr": 1e-4},
+            {"params": megnet_model.node_s2s.parameters(), "lr": 1e-4},
+            {"params": megnet_model.output_proj.parameters(), "lr": 1e-3},
+        ]
+        optimizer = torch.optim.AdamW(param_groups, weight_decay=1e-4)
+        patience = 30
+        base_lr = 1e-3
 
-    model_phase_1 = ModelLightningModule(model=megnet_model, data_mean=data_mean, data_std=data_std, lr=args.lr_1)
-    logger_1 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_1_budget_{budget_name}')
+    else:  # "full"
+        print("Strategy: 'Full Fine-Tuning' -> All layers are defrosted, single Learning Rate")
+        for param in megnet_model.parameters():
+            param.requires_grad = True
+            
+        optimizer = torch.optim.AdamW(
+            megnet_model.parameters(), 
+            lr=1e-4, 
+            weight_decay=1e-4
+        )
+        patience = 20
+        base_lr = 1e-4
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.epochs
+    )
+
+    lightning_model = ModelLightningModule(
+        model=megnet_model, 
+        data_mean=data_mean, 
+        data_std=data_std, 
+        loss="huber_loss",
+        optimizer=optimizer,
+        scheduler=scheduler,
+        lr=base_lr
+    )
     
-    trainer_phase_1 = L.Trainer(max_epochs=args.epochs_1, accelerator='auto', devices=1, logger=logger_1)
-    trainer_phase_1.fit(model=model_phase_1, train_dataloaders=train_loader, val_dataloaders=val_loader)
-
-    print(f'\nPhase 2: Unfreezing all layers and fine-tuning, lr={args.lr_2}, epochs={args.epochs_2}...')
-    for param in megnet_model.parameters():
-        param.requires_grad = True
-
-    model_phase_2 = ModelLightningModule(model=megnet_model, data_mean=data_mean, data_std=data_std, lr=args.lr_2)
-    logger_2 = CSVLogger(project_path('logs'), name=f'MEGNet_phase_2_budget_{budget_name}')
+    early_stopping = EarlyStopping(monitor="val_MAE", patience=patience, mode="min")
+    logger_name = f'MEGNet_{args.strategy}_train_fraction_{fraction_to_name(args.train_fraction)}'
+    logger = CSVLogger(project_path('logs'), name=logger_name)
     
-    trainer_phase_2 = L.Trainer(max_epochs=args.epochs_2, accelerator='auto', devices=1, logger=logger_2)
-    trainer_phase_2.fit(model=model_phase_2, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    trainer = L.Trainer(
+        max_epochs=args.epochs,
+        log_every_n_steps=5, 
+        accelerator='auto', 
+        devices="auto", 
+        logger=logger,
+        callbacks=[early_stopping],
+        deterministic=True,
+        enable_progress_bar=True
+    )
+    
+    print("\nStarting Training...\n")
+    trainer.fit(model=lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
-    final_model = TransformedTargetModel(model=megnet_model, target_transformer=loaded_model.transformer)
-    finetuned_model_path = project_path('artifacts', 'models', 'finetuned', f'MEGNet_budget_{budget_name}')
+    normalizer_class = type(loaded_model.transformer)
+    new_normalizer = normalizer_class(mean=data_mean, std=data_std)
+    
+    final_model = TransformedTargetModel(model=megnet_model, target_transformer=new_normalizer)
+    
+    finetuned_model_path = project_path('artifacts', 'models', 'finetuned', logger_name)
     finetuned_model_path.mkdir(parents=True, exist_ok=True)
     final_model.save(finetuned_model_path)
-    print(f"Model saved to {finetuned_model_path}")
+    print(f"\nModel saved to {finetuned_model_path}")
 
     return final_model
 
@@ -178,13 +235,11 @@ def save_predictions(
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    budget_name: str,
+    model_name: str,
+    train_fraction: float,
     seed: int,
-    split_strategy: str,
 ) -> str:
-    prediction_rel_path = (
-        f"results/predictions/{split_strategy}_{MODEL_NAME}_{budget_name}_seed{seed}.csv"
-    )
+    prediction_rel_path = f"results/predictions/{model_name}_{fraction_to_name(train_fraction)}_seed{seed}.csv"
     prediction_path = project_path(*prediction_rel_path.split("/"))
     prediction_path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(
@@ -206,9 +261,9 @@ def save_result_row(row: dict[str, object]) -> Path:
     if result_path.exists():
         old_df = pd.read_csv(result_path)
         duplicate = (
-            (old_df["model_name"] == row["model_name"])
-            & (old_df["budget_name"] == row["budget_name"])
-            & (old_df["model_seed"].astype(int) == int(row["model_seed"]))
+            (old_df["model"] == row["model"])
+            & (old_df["train_fraction"].astype(float) == float(row["train_fraction"]))
+            & (old_df["seed"].astype(int) == int(row["seed"]))
             & (old_df["split_id"] == row["split_id"])
         )
         new_df = pd.concat([old_df.loc[~duplicate], new_df], ignore_index=True)
@@ -217,12 +272,55 @@ def save_result_row(row: dict[str, object]) -> Path:
     return result_path
 
 
-def run_one_budget(args: argparse.Namespace, budget_name: str) -> None:
-    train_df, val_df, test_df = load_data(budget_name, args.split_strategy)
+def run_fallback(args: argparse.Namespace) -> None:
+    """Fallback-strategy which runs if MatGL is not installed."""
+    print(f"\n[FALLBACK MODE] MatGL not found. Running Baseline (Mean Predictor).")
+    train_df, val_df, test_df = load_data(args.train_fraction)
 
+    mean_target = train_df["target"].mean()
+    y_val_pred = np.full(len(val_df), mean_target)
+    y_test_pred = np.full(len(test_df), mean_target)
+
+    y_true_test = test_df["target"].to_numpy()
+    val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), y_val_pred)
+    test_metrics = compute_regression_metrics(y_true_test, y_test_pred)
+
+    fallback_model_name = f"{BASE_MODEL_NAME}_{args.strategy}_fallback"
+    predictions_path = save_predictions(
+        sample_ids=test_df["sample_id"],
+        y_true=y_true_test,
+        y_pred=y_test_pred,
+        model_name=fallback_model_name,
+        train_fraction=args.train_fraction,
+        seed=args.seed,
+    )
+
+    result_row = make_result_row(
+        model=fallback_model_name,
+        model_family=MODEL_FAMILY,
+        train_fraction=args.train_fraction,
+        seed=args.seed,
+        mae=test_metrics["mae"],
+        rmse=test_metrics["rmse"],
+        r2=test_metrics["r2"],
+        predictions_path=predictions_path,
+        notes="Fallback baseline: predicted mean train target due to MatGL missing."
+    )
+    save_result_row(result_row)
+    print(f"Fallback metrics | Test MAE: {test_metrics['mae']:.6f}, R2: {test_metrics['r2']:.6f}")
+
+
+def main() -> None:
+    args = parse_args()
+
+    if matgl is None or L is None:
+        run_fallback(args)
+        return
+    L.seed_everything(args.seed, workers=True)
+
+    train_df, val_df, test_df = load_data(args.train_fraction)
     train_dataset, val_dataset, test_dataset = prepare_datasets(train_df, val_df, test_df)
-
-    final_model = train_model(args, train_dataset, val_dataset, test_dataset, budget_name)
+    final_model = train_model(args, train_dataset, val_dataset, test_dataset)
 
     print("\nRunning inference...")
     y_val_pred = evaluate_model(final_model, val_df, args.device)
@@ -232,51 +330,43 @@ def run_one_budget(args: argparse.Namespace, budget_name: str) -> None:
     val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), y_val_pred)
     test_metrics = compute_regression_metrics(y_true_test, y_test_pred)
 
+    current_model_name = f"{BASE_MODEL_NAME}_{args.strategy}"
+    notes = f"Strategy: {args.strategy}. Early Stopping active."
+
     predictions_path = save_predictions(
         sample_ids=test_df["sample_id"],
         y_true=y_true_test,
         y_pred=y_test_pred,
-        budget_name=budget_name,
+        model_name=current_model_name,
+        train_fraction=args.train_fraction,
         seed=args.seed,
-        split_strategy=args.split_strategy,
     )
     
     result_row = make_result_row(
-        model_name=MODEL_NAME,
+        model=current_model_name,
         model_family=MODEL_FAMILY,
-        budget_name=budget_name,
-        model_seed=args.seed,
+        train_fraction=args.train_fraction,
+        seed=args.seed,
         mae=test_metrics["mae"],
         rmse=test_metrics["rmse"],
         r2=test_metrics["r2"],
         predictions_path=predictions_path,
-        notes=NOTES,
-        split_strategy=args.split_strategy,
+        notes=NOTES
     )
     result_path = save_result_row(result_row)
 
     print(f"Loaded dataset: {len(train_df) + len(val_df) + len(test_df)} samples")
-    print(f"Budget: {budget_name}")
+    print(f"Train fraction: {args.train_fraction}")
     print(f"Train size: {len(train_df)}")
     print(f"Validation size: {len(val_df)}")
     print(f"Test size: {len(test_df)}")
-    print(f"Model: {MODEL_NAME}")
+    print(f"Model: {current_model_name}")
     print(f"Validation MAE: {val_metrics['mae']:.6f}")
-    print(f"MAE: {test_metrics['mae']:.6f}")
-    print(f"RMSE: {test_metrics['rmse']:.6f}")
-    print(f"R2: {test_metrics['r2']:.6f}")
+    print(f"Test MAE: {test_metrics['mae']:.6f}")
+    print(f"Test RMSE: {test_metrics['rmse']:.6f}")
+    print(f"Test R2: {test_metrics['r2']:.6f}")
     print(f"Saved predictions to: {predictions_path}")
     print(f"Saved result row to: {result_path}")
-
-
-def main() -> None:
-    args = parse_args()
-
-    if matgl is None:
-        raise ImportError("MatGL, PyTorch and Lightning dependencies are required. Install them first.")
-
-    for budget_name in requested_budget_names(args):
-        run_one_budget(args, budget_name)
 
 
 if __name__ == "__main__":
