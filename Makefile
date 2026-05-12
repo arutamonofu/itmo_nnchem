@@ -1,17 +1,26 @@
-.PHONY: data smoke all summary validate
+PYTHON ?= python
+CLI := PYTHONPATH=src $(PYTHON) -m perovskite_screening.cli
+
+.PHONY: data smoke all summary validate splits test
 
 data:
-	python scripts/01_load_dataset.py
-	python scripts/02_make_splits.py
+	$(CLI) prepare-data --config configs/data/matbench_perovskites.yaml
+	$(CLI) make-splits --config configs/default.yaml
+
+splits:
+	$(CLI) make-splits --config configs/default.yaml
 
 smoke:
-	python scripts/03_smoke_mean_baseline.py --budgets all
-	python scripts/99_collect_results.py
+	$(CLI) run-suite --config configs/experiments/descriptor_rf.yaml --split-strategy random_iid --budgets B500 --seeds 42
+	$(CLI) collect --runs-dir outputs/runs --out outputs/summary/results.csv
 
 all: data smoke
 
 summary:
-	python scripts/99_collect_results.py
+	$(CLI) collect --runs-dir outputs/runs --out outputs/summary/results.csv
 
 validate:
-	python scripts/98_validate_results.py
+	$(CLI) validate-results --runs-dir outputs/runs
+
+test:
+	PYTHONPATH=src $(PYTHON) -m pytest -q tests/unit

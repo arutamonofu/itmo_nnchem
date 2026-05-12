@@ -1,0 +1,15 @@
+project:
+  name: perovskite_screening
+
+data:
+  dataset_name: matbench_perovskites
+  target: formation_energy
+  target_unit: eV/unit cell
+  processed_path: data/processed/dataset.pkl
+
+splits:
+  random_seed: 42
+  default_strategy: random_iid
+
+model:
+  family: cgcnn

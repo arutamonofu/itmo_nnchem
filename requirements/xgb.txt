@@ -1,0 +1,2 @@
+# Optional dependency for configs/experiments/descriptor_xgb.yaml.
+xgboost>=2,<4

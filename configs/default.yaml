@@ -1,0 +1,24 @@
+project:
+  name: perovskite_screening
+
+data:
+  dataset_name: matbench_perovskites
+  target: formation_energy
+  target_unit: eV/unit cell
+  processed_path: data/processed/dataset.pkl
+
+splits:
+  random_seed: 42
+  default_strategy: random_iid
+  val_size: 0.10
+  test_size: 0.10
+
+budgets:
+  base_budget: 500
+  growth_factor: 2
+  min_final_growth_ratio: 1.25
+  sampling_strategy: deterministic_random
+
+outputs:
+  runs_dir: outputs/runs
+  summary_dir: outputs/summary

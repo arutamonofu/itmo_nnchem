@@ -1,0 +1,11 @@
+{
+  "dataset_name": "matbench_perovskites",
+  "n_samples": 18928,
+  "columns": [
+    "sample_id",
+    "structure",
+    "target"
+  ],
+  "target_name": "target",
+  "target_unit": "eV/unit cell"
+}

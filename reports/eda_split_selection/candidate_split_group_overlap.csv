@@ -1,7 +1,0 @@
-candidate,group_key,n_train_groups,n_test_groups,n_overlap_train_test,test_objects_seen_in_train_count,test_objects_seen_in_train_fraction,largest_test_groups
-random_iid,reduced_formula,9177,1785,1442,1442,0.7617538298996303,TePtO3:2; TlIrNO2:2; AgSnN3:2; YCdN3:2; VPbO2F:2; SrTlO2F:2; NaScNO2:2; SiGeO2F:2; HfInSO2:2; RhPbO3:2
-random_iid,element_set,7933,1729,1486,1569,0.8288431061806656,Hf-N-O-Pd:3; Mo-N-O-W:3; La-N-O-Pd:3; N-O-Sc-Sr:3; N-O-Si-Sn:3; Al-N-O-Ta:3; N-Na-O-Y:3; O-Pt-Te:2; N-O-Ru-Sr:2; Cu-N-O-Ti:2
-group_reduced_formula,reduced_formula,7716,965,0,0,0.0,CaAlN3:2; LiYNOF:2; SrVNOF:2; LiCdN3:2; SnRhNO2:2; ScOsN3:2; BiTeSO2:2; LaNiO2F:2; ZnRhSO2:2; MnAlO2F:2
-group_reduced_formula,element_set,6806,952,191,375,0.1982029598308668,N-O-Rb-Tl:4; La-N-O-Re:4; Hf-N-O-Si:4; Ga-Hg-N-O:4; Hg-N-O-Ta:4; Co-N-O-Rh:4; Ca-N-Ni-O:4; Cu-N-O-Sc:4; Ag-N-O-Sc:4; As-Mo-N-O:4
-group_element_set,reduced_formula,7694,978,0,0,0.0,BeAuN3:2; YZrSO2:2; ScSbSO2:2; LiSbO2F:2; MnVO2F:2; KTaNOF:2; InMoN3:2; TlReO3:2; GePdO3:2; VGaNOF:2
-group_element_set,element_set,6614,827,0,0,0.0,B-Fe-N-O:4; N-O-Ru-Sn:4; Al-N-O-Sn:4; N-Ni-O-Ti:4; N-O-Te-Zn:4; Be-N-O-V:4; Ag-Hf-N-O:4; As-N-O-Rh:4; Au-Fe-N-O:4; Co-Mg-N-O:4

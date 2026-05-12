@@ -1,14 +1,16 @@
 __pycache__/
-*.pyc
-.venv/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .ipynb_checkpoints/
 
-data/raw/
-data/processed/
-results/predictions/
-artifacts/models/
+outputs/runs/
+outputs/summary/
+results/
+MGLDataset/
+reports/
 
-*.pt
-*.pth
-*.pkl
-*.joblib
+.venv/
+venv/
+*.egg-info/

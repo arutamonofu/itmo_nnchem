@@ -1,4 +1,4 @@
-name: itmo_nnchem
+name: perovskite_screening
 channels:
   - conda-forge
 dependencies:
