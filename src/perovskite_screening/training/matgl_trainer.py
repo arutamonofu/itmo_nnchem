@@ -228,10 +228,23 @@ def train_matgl(
 def evaluate_matgl(model, df: pd.DataFrame, *, device_name: str) -> np.ndarray:
     deps = require_matgl_dependencies()
     torch = deps["torch"]
-    device = torch.device(_resolve_device_name(torch, device_name))
+
+    # MatGL/MEGNet PyG predict_structure can create tensors on a different
+    # device from some internal basis buffers after fine-tuning/wrapping.
+    # Training still uses the configured device, but per-structure evaluation is
+    # forced to CPU to avoid cuda/cpu mismatch in the wrapper.
+    if str(device_name).lower().startswith("cuda"):
+        LOGGER.warning("Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.")
+
     model.eval()
-    model = model.to(device)
-    return df["structure"].apply(lambda structure: float(model.predict_structure(structure).detach().cpu())).to_numpy()
+    model = model.to(torch.device("cpu"))
+
+    predictions: list[float] = []
+    with torch.no_grad():
+        for structure in df["structure"]:
+            pred = model.predict_structure(structure)
+            predictions.append(float(pred.detach().cpu()))
+    return np.asarray(predictions)
 
 
 def run_matgl_experiment(
