@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
-import numpy as np
 import pytest
 
 from perovskite_screening.config import ProjectConfig
@@ -119,95 +117,3 @@ def test_matgl_config_patience_overrides_strategy_default(monkeypatch) -> None:
     assert params["strategy"] == "frozen"
     assert params["early_stopping_patience"] == 10
 
-
-def test_matgl_graph_cache_stem_includes_cutoff() -> None:
-    assert (
-        matgl_trainer._matgl_graph_cache_stem(
-            artifact_stem="element_set_matgl_megnet_frozen_B500_seed42",
-            cutoff=4.5,
-        )
-        == "element_set_matgl_megnet_frozen_B500_seed42_cutoff4p5"
-    )
-
-
-def test_matgl_dataset_kwargs_use_absolute_cache_name(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(matgl_models, "project_rel_path", lambda rel_path: tmp_path.joinpath(*rel_path.split("/")))
-
-    class _DatasetWithCacheControls:
-        def __init__(
-            self,
-            *,
-            structures,
-            converter,
-            labels,
-            threebody_cutoff,
-            name,
-            force_reload,
-            verbose,
-        ) -> None:
-            pass
-
-    kwargs = matgl_models._matgl_dataset_kwargs(
-        _DatasetWithCacheControls,
-        structures=["structure"],
-        converter="converter",
-        labels=np.array([1.0]),
-        cutoff=4.0,
-        cache_stem="element_set_matgl_megnet_frozen_B500_seed42",
-        partition="train",
-        force_reload=True,
-    )
-
-    cache_base = tmp_path / "outputs" / "cache" / "matgl" / "element_set_matgl_megnet_frozen_B500_seed42"
-    assert kwargs["name"] == str(cache_base / "train")
-    assert "raw_dir" not in kwargs
-    assert "save_dir" not in kwargs
-    assert kwargs["threebody_cutoff"] == 4.0
-    assert kwargs["force_reload"] is True
-    assert kwargs["verbose"] is False
-    assert cache_base.is_dir()
-
-
-def test_matgl_dataset_kwargs_does_not_infer_kwargs_parameters(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(matgl_models, "project_rel_path", lambda rel_path: tmp_path.joinpath(*rel_path.split("/")))
-
-    class _DatasetWithVarKwargs:
-        def __init__(self, *, structures, converter, labels, name, **kwargs) -> None:
-            pass
-
-    kwargs = matgl_models._matgl_dataset_kwargs(
-        _DatasetWithVarKwargs,
-        structures=["structure"],
-        converter="converter",
-        labels=np.array([1.0]),
-        cutoff=4.0,
-        cache_stem="element_set_matgl_megnet_frozen_B500_seed42",
-        partition="val",
-    )
-
-    expected_name = (
-        tmp_path / "outputs" / "cache" / "matgl" / "element_set_matgl_megnet_frozen_B500_seed42" / "val"
-    )
-    assert Path(str(kwargs["name"])) == expected_name
-    assert "raw_dir" not in kwargs
-    assert "save_dir" not in kwargs
-    assert "force_reload" not in kwargs
-
-
-def test_matgl_dataset_kwargs_requires_name_for_controlled_cache(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(matgl_models, "project_rel_path", lambda rel_path: tmp_path.joinpath(*rel_path.split("/")))
-
-    class _DatasetWithoutName:
-        def __init__(self, *, structures, converter, labels) -> None:
-            pass
-
-    with pytest.raises(TypeError, match="name"):
-        matgl_models._matgl_dataset_kwargs(
-            _DatasetWithoutName,
-            structures=["structure"],
-            converter="converter",
-            labels=np.array([1.0]),
-            cutoff=4.0,
-            cache_stem="element_set_matgl_megnet_frozen_B500_seed42",
-            partition="test",
-        )

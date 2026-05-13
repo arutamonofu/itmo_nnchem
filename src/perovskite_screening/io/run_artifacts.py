@@ -35,12 +35,5 @@ def model_dir_rel_path(*, model_family: str, stem: str) -> str:
     return f"outputs/models/{model_family}/{stem}"
 
 
-def cache_dir_rel_path(*, cache_family: str, stem: str, partition: str | None = None) -> str:
-    rel_path = f"outputs/cache/{cache_family}/{stem}"
-    if partition is not None:
-        rel_path = f"{rel_path}/{partition}"
-    return rel_path
-
-
 def project_rel_path(rel_path: str) -> Path:
     return project_path(*rel_path.split("/"))

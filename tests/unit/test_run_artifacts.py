@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from perovskite_screening.io.run_artifacts import (
-    cache_dir_rel_path,
     history_dir_rel_path,
     history_file_rel_path,
     model_dir_rel_path,
@@ -30,12 +29,4 @@ def test_run_artifact_paths_use_one_stem_convention() -> None:
     assert (
         model_dir_rel_path(model_family="matgl", stem=stem)
         == "outputs/models/matgl/element_set_matgl_megnet_frozen_B500_seed42"
-    )
-    assert (
-        cache_dir_rel_path(cache_family="matgl", stem=stem)
-        == "outputs/cache/matgl/element_set_matgl_megnet_frozen_B500_seed42"
-    )
-    assert (
-        cache_dir_rel_path(cache_family="matgl", stem=stem, partition="train")
-        == "outputs/cache/matgl/element_set_matgl_megnet_frozen_B500_seed42/train"
     )

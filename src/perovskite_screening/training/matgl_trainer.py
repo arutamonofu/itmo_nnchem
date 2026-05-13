@@ -12,7 +12,6 @@ from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
 from perovskite_screening.io.run_artifacts import (
-    cache_dir_rel_path,
     history_dir_rel_path,
     model_dir_rel_path,
     prediction_rel_path,
@@ -56,7 +55,6 @@ def matgl_effective_params(config: ProjectConfig, *, strategy_patience: int | No
         "device": str(params.get("device", "cuda")),
         "num_workers": int(params.get("num_workers", 0)),
         "progress_bar": bool(params.get("progress_bar", True)),
-        "force_reload_cache": bool(params.get("force_reload_cache", False)),
     }
     configured_patience = params.get("early_stopping_patience")
     if configured_patience is not None:
@@ -103,11 +101,6 @@ def _save_predictions(
     return rel_path
 
 
-def _matgl_graph_cache_stem(*, artifact_stem: str, cutoff: float) -> str:
-    cutoff_label = f"{cutoff:g}".replace(".", "p")
-    return f"{artifact_stem}_cutoff{cutoff_label}"
-
-
 def train_matgl(
     *,
     train_df: pd.DataFrame,
@@ -135,7 +128,6 @@ def train_matgl(
     pretrained_model_name = str(params.get("pretrained_model_name", PRETRAINED_MODEL_NAME))
     num_workers = int(params.get("num_workers", 0))
     progress_bar = bool(params.get("progress_bar", True))
-    force_reload_cache = bool(params.get("force_reload_cache", False))
     device_name = _resolve_device_name(torch, str(params.get("device", "cuda")))
     model_name = f"{BASE_MODEL_NAME}_{strategy}"
     artifact_stem = run_artifact_stem(
@@ -144,8 +136,6 @@ def train_matgl(
         budget_name=budget_name,
         seed=seed,
     )
-    graph_cache_stem = _matgl_graph_cache_stem(artifact_stem=artifact_stem, cutoff=cutoff)
-    graph_cache_path = cache_dir_rel_path(cache_family=MODEL_FAMILY, stem=graph_cache_stem)
 
     L.seed_everything(seed, workers=True)
     train_dataset, val_dataset, test_dataset = prepare_matgl_datasets(
@@ -153,8 +143,6 @@ def train_matgl(
         val_df,
         test_df,
         cutoff=cutoff,
-        cache_stem=graph_cache_stem,
-        force_reload_cache=force_reload_cache,
     )
     train_loader, val_loader, _ = MGLDataLoader(
         train_data=train_dataset,
@@ -222,7 +210,7 @@ def train_matgl(
     model_path = project_rel_path(rel_model_path)
     model_path.mkdir(parents=True, exist_ok=True)
     final_model.save(model_path)
-    return final_model, rel_model_path, history_path, graph_cache_path, strategy, device_name, params
+    return final_model, rel_model_path, history_path, strategy, device_name, params
 
 
 def evaluate_matgl(model, df: pd.DataFrame, *, device_name: str) -> np.ndarray:
@@ -256,7 +244,7 @@ def run_matgl_experiment(
 ) -> dict[str, object]:
     require_matgl_dependencies()
     data = load_experiment_data(budget_name=budget_name, split_strategy=split_strategy, config=config)
-    final_model, model_path, history_path, graph_cache_path, strategy, device_name, params = train_matgl(
+    final_model, model_path, history_path, strategy, device_name, params = train_matgl(
         train_df=data.train,
         val_df=data.val,
         test_df=data.test,
@@ -299,8 +287,7 @@ def run_matgl_experiment(
         model_params=params,
         notes=(
             f"{NOTES} Strategy={strategy}; early_stopping_patience={params['early_stopping_patience']}; "
-            f"model_path={model_path}; history_path={history_path}; graph_cache_path={graph_cache_path}; "
-            f"validation MAE={val_metrics['mae']:.6f}."
+            f"model_path={model_path}; history_path={history_path}; validation MAE={val_metrics['mae']:.6f}."
         ),
     )
     result_path = project_path("outputs", "runs", "matgl.csv")
