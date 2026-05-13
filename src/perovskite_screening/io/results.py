@@ -30,6 +30,8 @@ REQUIRED_RESULT_COLUMNS = [
     "n_test",
     "target_unit",
     "predictions_path",
+    "model_path",
+    "history_path",
     "model_params_json",
     "notes",
 ]
@@ -42,10 +44,7 @@ def model_params_to_json(model_params: dict[str, object] | None) -> str:
 
 
 def normalize_result_frame(df: pd.DataFrame) -> pd.DataFrame:
-    normalized = df.copy()
-    if "model_params_json" not in normalized.columns:
-        normalized["model_params_json"] = "{}"
-    return normalized
+    return df.copy()
 
 
 def validate_result_rows(df: pd.DataFrame, source: str | Path = "result rows") -> None:
@@ -120,6 +119,8 @@ def make_result_row(
     predictions_path: str,
     split_strategy: str,
     config: ProjectConfig,
+    model_path: str = "",
+    history_path: str = "",
     model_params: dict[str, object] | None = None,
     notes: str = "",
 ) -> dict[str, object]:
@@ -131,6 +132,8 @@ def make_result_row(
         "rmse": float(rmse),
         "r2": float(r2),
         "predictions_path": predictions_path,
+        "model_path": model_path,
+        "history_path": history_path,
         "model_params_json": model_params_to_json(model_params),
         "notes": notes,
     }
@@ -176,6 +179,18 @@ def validate_results(runs_dir: Path) -> int:
             if pd.isna(rel_path) or str(rel_path).strip() == "":
                 continue
             validate_prediction_file(project_path(*str(rel_path).split("/")))
+        for rel_path in ordered["model_path"]:
+            if pd.isna(rel_path) or str(rel_path).strip() == "":
+                continue
+            artifact_path = project_path(*str(rel_path).split("/"))
+            if not artifact_path.exists():
+                raise FileNotFoundError(f"model_path does not exist: {artifact_path}")
+        for rel_path in ordered["history_path"]:
+            if pd.isna(rel_path) or str(rel_path).strip() == "":
+                continue
+            history_path = project_path(*str(rel_path).split("/"))
+            if not history_path.exists():
+                raise FileNotFoundError(f"history_path does not exist: {history_path}")
         total_rows += len(ordered)
     return total_rows
 

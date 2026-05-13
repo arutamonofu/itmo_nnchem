@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import builtins
+import pickle
 import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 import pytest
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
@@ -13,6 +15,7 @@ from perovskite_screening.features.descriptors import expanded_features, starter
 from perovskite_screening.config import ProjectConfig
 from perovskite_screening.models.descriptor import build_descriptor_model
 from perovskite_screening.models import matgl as matgl_models
+from perovskite_screening.training import descriptor_trainer
 from perovskite_screening.training.descriptor_trainer import descriptor_model_params
 
 
@@ -75,6 +78,38 @@ def test_descriptor_xgb_uses_config_params_and_seed_overrides_random_state(monke
 def test_descriptor_rejects_unsupported_params() -> None:
     with pytest.raises(ValueError, match="Unsupported rf model.params"):
         build_descriptor_model("rf", seed=42, params={"not_a_rf_param": 1})
+
+
+def test_descriptor_model_artifact_is_pickled(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(descriptor_trainer, "project_rel_path", lambda rel_path: tmp_path.joinpath(*rel_path.split("/")))
+    model = {"trained": True}
+
+    rel_path = descriptor_trainer._save_model(
+        model=model,
+        artifact_stem="random_iid_descriptor_rf_starter_B500_seed42",
+    )
+
+    path = tmp_path.joinpath(*rel_path.split("/"))
+    assert rel_path == "outputs/models/descriptor_baseline/random_iid_descriptor_rf_starter_B500_seed42.pkl"
+    assert pickle.loads(path.read_bytes()) == model
+
+
+def test_descriptor_history_artifact_is_written(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(descriptor_trainer, "project_rel_path", lambda rel_path: tmp_path.joinpath(*rel_path.split("/")))
+
+    rel_path = descriptor_trainer._save_training_history(
+        artifact_stem="random_iid_descriptor_rf_starter_B500_seed42",
+        model_kind="rf",
+        feature_set="starter",
+        n_features=6,
+        train_metrics={"mae": 0.1, "rmse": 0.2, "r2": 0.9},
+    )
+
+    history = pd.read_csv(tmp_path.joinpath(*rel_path.split("/")))
+    assert rel_path == "outputs/runs/history/random_iid_descriptor_rf_starter_B500_seed42.csv"
+    assert history.loc[0, "stage"] == "fit"
+    assert history.loc[0, "n_features"] == 6
+    assert history.loc[0, "train_mae"] == 0.1
 
 
 class _Element:

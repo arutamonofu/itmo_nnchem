@@ -8,6 +8,7 @@ from perovskite_screening.data.budgets import load_budget_metadata, resolve_budg
 from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
+from perovskite_screening.io.run_artifacts import prediction_rel_path, project_rel_path, run_artifact_stem
 from perovskite_screening.training.cgcnn_trainer import run_cgcnn_experiment
 from perovskite_screening.training.descriptor_trainer import (
     descriptor_model_params,
@@ -33,8 +34,14 @@ def run_mean_baseline(
     y_test = data.test["target"].to_numpy()
     y_pred = np.full(shape=len(data.test), fill_value=train_mean)
     metrics = compute_regression_metrics(y_test, y_pred)
-    rel_path = f"outputs/runs/predictions/{split_strategy}_mean_baseline_{budget_name}_seed{seed}.csv"
-    prediction_path = project_path(*rel_path.split("/"))
+    artifact_stem = run_artifact_stem(
+        split_strategy=split_strategy,
+        model_name="mean_baseline",
+        budget_name=budget_name,
+        seed=seed,
+    )
+    rel_path = prediction_rel_path(artifact_stem)
+    prediction_path = project_rel_path(rel_path)
     ensure_parent(prediction_path)
     pd.DataFrame(
         {

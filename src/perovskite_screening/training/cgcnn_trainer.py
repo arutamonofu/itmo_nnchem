@@ -12,6 +12,13 @@ from perovskite_screening.config import ProjectConfig
 from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
+from perovskite_screening.io.run_artifacts import (
+    history_file_rel_path,
+    model_file_rel_path,
+    prediction_rel_path,
+    project_rel_path,
+    run_artifact_stem,
+)
 from perovskite_screening.models.cgcnn import build_cgcnn_model, dataframe_to_cgcnn_graphs
 from perovskite_screening.training.trainer import load_experiment_data
 
@@ -109,14 +116,28 @@ def _predict_loader(model, loader, *, device, target_mean: float, target_std: fl
     return np.asarray(pred_values)
 
 
+def _save_training_history(
+    *,
+    records: list[dict[str, object]],
+    artifact_stem: str,
+) -> str:
+    rel_path = history_file_rel_path(artifact_stem)
+    path = project_rel_path(rel_path)
+    ensure_parent(path)
+    pd.DataFrame.from_records(records).to_csv(path, index=False)
+    return rel_path
+
+
 def train_cgcnn(
     *,
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
     test_df: pd.DataFrame,
     config: ProjectConfig,
+    budget_name: str,
+    split_strategy: str,
     seed: int,
-) -> tuple[np.ndarray, dict[str, float]]:
+) -> tuple[np.ndarray, dict[str, float], str, str]:
     torch, nn, GeoDataLoader = _require_training_dependencies()
     params = cgcnn_model_params(config)
     epochs = int(params["epochs"])
@@ -159,6 +180,7 @@ def train_cgcnn(
     best_state = copy.deepcopy(model.state_dict())
     best_val_mae = float("inf")
     bad_epochs = 0
+    history_records: list[dict[str, object]] = []
 
     for epoch in range(epochs):
         model.train()
@@ -188,6 +210,19 @@ def train_cgcnn(
         )
         if improved:
             best_state = copy.deepcopy(model.state_dict())
+        history_records.append(
+            {
+                "epoch": epoch + 1,
+                "train_loss": avg_loss,
+                "val_mae": val_mae,
+                "val_rmse": float(val_metrics["rmse"]),
+                "val_r2": float(val_metrics["r2"]),
+                "best_val_mae": best_val_mae,
+                "lr": float(optimizer.param_groups[0]["lr"]),
+                "improved": bool(improved),
+                "bad_epochs": int(bad_epochs),
+            }
+        )
         LOGGER.info(
             "CGCNN epoch %s/%s | train_loss=%.6f | val_mae=%.6f | best_val_mae=%.6f | lr=%.2e",
             epoch + 1,
@@ -213,20 +248,45 @@ def train_cgcnn(
         test_pred = _predict_loader(model, test_loader, device=device, target_mean=target_mean, target_std=target_std)
 
     val_metrics = compute_regression_metrics(val_df["target"].to_numpy(), val_pred)
-    return test_pred, val_metrics
+    artifact_stem = run_artifact_stem(
+        split_strategy=split_strategy,
+        model_name=MODEL_NAME,
+        budget_name=budget_name,
+        seed=seed,
+    )
+    history_path = _save_training_history(
+        records=history_records,
+        artifact_stem=artifact_stem,
+    )
+    rel_model_path = model_file_rel_path(model_family=MODEL_FAMILY, stem=artifact_stem, suffix=".pt")
+    model_path = project_rel_path(rel_model_path)
+    ensure_parent(model_path)
+    torch.save(
+        {
+            "model_family": MODEL_FAMILY,
+            "model_name": MODEL_NAME,
+            "model_state_dict": {key: value.detach().cpu() for key, value in best_state.items()},
+            "model_params": params,
+            "target_mean": target_mean,
+            "target_std": target_std,
+            "validation_metrics": val_metrics,
+            "history_path": history_path,
+            "seed": int(seed),
+        },
+        model_path,
+    )
+    return test_pred, val_metrics, rel_model_path, history_path
 
 
 def _save_predictions(
     *,
+    artifact_stem: str,
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    budget_name: str,
-    seed: int,
-    split_strategy: str,
 ) -> str:
-    rel_path = f"outputs/runs/predictions/{split_strategy}_{MODEL_NAME}_{budget_name}_seed{seed}.csv"
-    path = project_path(*rel_path.split("/"))
+    rel_path = prediction_rel_path(artifact_stem)
+    path = project_rel_path(rel_path)
     ensure_parent(path)
     pd.DataFrame(
         {
@@ -249,22 +309,28 @@ def run_cgcnn_experiment(
     _require_training_dependencies()
     params = cgcnn_model_params(config)
     data = load_experiment_data(budget_name=budget_name, split_strategy=split_strategy, config=config)
-    test_pred, val_metrics = train_cgcnn(
+    test_pred, val_metrics, model_path, history_path = train_cgcnn(
         train_df=data.train,
         val_df=data.val,
         test_df=data.test,
         config=config,
+        budget_name=budget_name,
+        split_strategy=split_strategy,
         seed=seed,
     )
     y_test = data.test["target"].to_numpy()
     metrics = compute_regression_metrics(y_test, test_pred)
+    artifact_stem = run_artifact_stem(
+        split_strategy=split_strategy,
+        model_name=MODEL_NAME,
+        budget_name=budget_name,
+        seed=seed,
+    )
     predictions_path = _save_predictions(
+        artifact_stem=artifact_stem,
         sample_ids=data.test["sample_id"],
         y_true=y_test,
         y_pred=test_pred,
-        budget_name=budget_name,
-        seed=seed,
-        split_strategy=split_strategy,
     )
     row = make_result_row(
         model_name=MODEL_NAME,
@@ -275,10 +341,15 @@ def run_cgcnn_experiment(
         rmse=metrics["rmse"],
         r2=metrics["r2"],
         predictions_path=predictions_path,
+        model_path=model_path,
+        history_path=history_path,
         split_strategy=split_strategy,
         config=config,
         model_params=params,
-        notes=f"{NOTES} Params={_format_cgcnn_params(params)}; validation MAE={val_metrics['mae']:.6f}.",
+        notes=(
+            f"{NOTES} Params={_format_cgcnn_params(params)}; model_path={model_path}; "
+            f"history_path={history_path}; validation MAE={val_metrics['mae']:.6f}."
+        ),
     )
     result_path = project_path("outputs", "runs", "cgcnn.csv")
     upsert_result_row(row, result_path)

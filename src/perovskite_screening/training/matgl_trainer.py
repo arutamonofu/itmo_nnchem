@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -10,6 +11,14 @@ from perovskite_screening.config import ProjectConfig
 from perovskite_screening.evaluation.metrics import compute_regression_metrics
 from perovskite_screening.io.paths import ensure_parent, project_path
 from perovskite_screening.io.results import make_result_row, upsert_result_row
+from perovskite_screening.io.run_artifacts import (
+    cache_dir_rel_path,
+    history_dir_rel_path,
+    model_dir_rel_path,
+    prediction_rel_path,
+    project_rel_path,
+    run_artifact_stem,
+)
 from perovskite_screening.models.matgl import (
     PRETRAINED_MODEL_NAME,
     build_matgl_model,
@@ -47,6 +56,7 @@ def matgl_effective_params(config: ProjectConfig, *, strategy_patience: int | No
         "device": str(params.get("device", "cuda")),
         "num_workers": int(params.get("num_workers", 0)),
         "progress_bar": bool(params.get("progress_bar", True)),
+        "force_reload_cache": bool(params.get("force_reload_cache", False)),
     }
     configured_patience = params.get("early_stopping_patience")
     if configured_patience is not None:
@@ -74,16 +84,13 @@ def _lightning_accelerator(device_name: str) -> str:
 
 def _save_predictions(
     *,
+    artifact_stem: str,
     sample_ids: pd.Series,
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    model_name: str,
-    budget_name: str,
-    seed: int,
-    split_strategy: str,
 ) -> str:
-    rel_path = f"outputs/runs/predictions/{split_strategy}_{model_name}_{budget_name}_seed{seed}.csv"
-    path = project_path(*rel_path.split("/"))
+    rel_path = prediction_rel_path(artifact_stem)
+    path = project_rel_path(rel_path)
     ensure_parent(path)
     pd.DataFrame(
         {
@@ -94,6 +101,11 @@ def _save_predictions(
         }
     ).to_csv(path, index=False)
     return rel_path
+
+
+def _matgl_graph_cache_stem(*, artifact_stem: str, cutoff: float) -> str:
+    cutoff_label = f"{cutoff:g}".replace(".", "p")
+    return f"{artifact_stem}_cutoff{cutoff_label}"
 
 
 def train_matgl(
@@ -123,7 +135,17 @@ def train_matgl(
     pretrained_model_name = str(params.get("pretrained_model_name", PRETRAINED_MODEL_NAME))
     num_workers = int(params.get("num_workers", 0))
     progress_bar = bool(params.get("progress_bar", True))
+    force_reload_cache = bool(params.get("force_reload_cache", False))
     device_name = _resolve_device_name(torch, str(params.get("device", "cuda")))
+    model_name = f"{BASE_MODEL_NAME}_{strategy}"
+    artifact_stem = run_artifact_stem(
+        split_strategy=split_strategy,
+        model_name=model_name,
+        budget_name=budget_name,
+        seed=seed,
+    )
+    graph_cache_stem = _matgl_graph_cache_stem(artifact_stem=artifact_stem, cutoff=cutoff)
+    graph_cache_path = cache_dir_rel_path(cache_family=MODEL_FAMILY, stem=graph_cache_stem)
 
     L.seed_everything(seed, workers=True)
     train_dataset, val_dataset, test_dataset = prepare_matgl_datasets(
@@ -131,6 +153,8 @@ def train_matgl(
         val_df,
         test_df,
         cutoff=cutoff,
+        cache_stem=graph_cache_stem,
+        force_reload_cache=force_reload_cache,
     )
     train_loader, val_loader, _ = MGLDataLoader(
         train_data=train_dataset,
@@ -163,13 +187,18 @@ def train_matgl(
         lr=base_lr,
     )
 
-    logger_name = f"MEGNet_{strategy}_{split_strategy}_{budget_name}_seed{seed}"
+    rel_history_dir = history_dir_rel_path(artifact_stem)
+    history_logger = CSVLogger(
+        project_rel_path(rel_history_dir).parent,
+        name=Path(rel_history_dir).name,
+        version="",
+    )
     trainer = L.Trainer(
         max_epochs=epochs,
         log_every_n_steps=5,
         accelerator=_lightning_accelerator(device_name),
         devices=1,
-        logger=CSVLogger(project_path("logs"), name=logger_name),
+        logger=history_logger,
         callbacks=[EarlyStopping(monitor="val_MAE", patience=patience, mode="min")],
         deterministic=True,
         enable_progress_bar=progress_bar,
@@ -182,16 +211,18 @@ def train_matgl(
         device_name,
     )
     trainer.fit(model=lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+    history_path = (Path(history_logger.log_dir) / "metrics.csv").relative_to(project_path()).as_posix()
 
     final_model = make_transformed_target_model(
         loaded_model=loaded_model,
         megnet_model=megnet_model,
         y_train=y_train,
     )
-    model_path = project_path("outputs", "models", "finetuned", logger_name)
+    rel_model_path = model_dir_rel_path(model_family=MODEL_FAMILY, stem=artifact_stem)
+    model_path = project_rel_path(rel_model_path)
     model_path.mkdir(parents=True, exist_ok=True)
     final_model.save(model_path)
-    return final_model, str(model_path), strategy, device_name, params
+    return final_model, rel_model_path, history_path, graph_cache_path, strategy, device_name, params
 
 
 def evaluate_matgl(model, df: pd.DataFrame, *, device_name: str) -> np.ndarray:
@@ -212,7 +243,7 @@ def run_matgl_experiment(
 ) -> dict[str, object]:
     require_matgl_dependencies()
     data = load_experiment_data(budget_name=budget_name, split_strategy=split_strategy, config=config)
-    final_model, model_path, strategy, device_name, params = train_matgl(
+    final_model, model_path, history_path, graph_cache_path, strategy, device_name, params = train_matgl(
         train_df=data.train,
         val_df=data.val,
         test_df=data.test,
@@ -227,14 +258,17 @@ def run_matgl_experiment(
     val_metrics = compute_regression_metrics(data.val["target"].to_numpy(), val_pred)
     test_metrics = compute_regression_metrics(data.test["target"].to_numpy(), test_pred)
     model_name = f"{BASE_MODEL_NAME}_{strategy}"
-    predictions_path = _save_predictions(
-        sample_ids=data.test["sample_id"],
-        y_true=data.test["target"].to_numpy(),
-        y_pred=test_pred,
+    artifact_stem = run_artifact_stem(
+        split_strategy=split_strategy,
         model_name=model_name,
         budget_name=budget_name,
         seed=seed,
-        split_strategy=split_strategy,
+    )
+    predictions_path = _save_predictions(
+        artifact_stem=artifact_stem,
+        sample_ids=data.test["sample_id"],
+        y_true=data.test["target"].to_numpy(),
+        y_pred=test_pred,
     )
     row = make_result_row(
         model_name=model_name,
@@ -245,12 +279,15 @@ def run_matgl_experiment(
         rmse=test_metrics["rmse"],
         r2=test_metrics["r2"],
         predictions_path=predictions_path,
+        model_path=model_path,
+        history_path=history_path,
         split_strategy=split_strategy,
         config=config,
         model_params=params,
         notes=(
             f"{NOTES} Strategy={strategy}; early_stopping_patience={params['early_stopping_patience']}; "
-            f"model_path={model_path}; validation MAE={val_metrics['mae']:.6f}."
+            f"model_path={model_path}; history_path={history_path}; graph_cache_path={graph_cache_path}; "
+            f"validation MAE={val_metrics['mae']:.6f}."
         ),
     )
     result_path = project_path("outputs", "runs", "matgl.csv")
