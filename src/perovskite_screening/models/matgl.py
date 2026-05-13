@@ -50,10 +50,14 @@ def _accepts_parameter(callable_obj, parameter_name: str) -> bool:
     try:
         signature = inspect.signature(callable_obj)
     except (TypeError, ValueError):
-        return False
-    return parameter_name in signature.parameters or any(
-        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()
-    )
+        init = getattr(callable_obj, "__init__", None)
+        if init is None:
+            return False
+        try:
+            signature = inspect.signature(init)
+        except (TypeError, ValueError):
+            return False
+    return parameter_name in signature.parameters
 
 
 def _matgl_dataset_kwargs(
@@ -80,14 +84,9 @@ def _matgl_dataset_kwargs(
     cache_base = project_rel_path(cache_dir_rel_path(cache_family=MATGL_CACHE_FAMILY, stem=cache_stem))
     cache_base.mkdir(parents=True, exist_ok=True)
 
-    accepts_raw_dir = _accepts_parameter(dataset_class, "raw_dir")
-    accepts_save_dir = _accepts_parameter(dataset_class, "save_dir")
-    if _accepts_parameter(dataset_class, "name"):
-        kwargs["name"] = partition if accepts_raw_dir or accepts_save_dir else str(cache_base / partition)
-    if accepts_raw_dir:
-        kwargs["raw_dir"] = str(cache_base)
-    if accepts_save_dir:
-        kwargs["save_dir"] = str(cache_base)
+    if not _accepts_parameter(dataset_class, "name"):
+        raise TypeError("MatGL MGLDataset does not expose a 'name' parameter for controlled graph cache paths.")
+    kwargs["name"] = str(cache_base / partition)
     if _accepts_parameter(dataset_class, "force_reload"):
         kwargs["force_reload"] = bool(force_reload)
     if _accepts_parameter(dataset_class, "verbose"):
