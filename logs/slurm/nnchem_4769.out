@@ -1,0 +1,771 @@
+============================================================
+PROTOCOL
+3 models x 2 splits x 4 budgets x 3 seeds = 72 runs
+Splits: random_iid, element_set
+Budgets: B500, B2000, B8000, Bfull
+Seeds: 42, 43, 44
+Project: /mnt/tank/scratch/aartamonov/itmo_nnchem
+Env:     /mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening
+Job ID:  4769
+Node:    aichem
+Start:   Wed May 13 03:12:42 PM MSK 2026
+============================================================
+
+==> Git state
+d63a54e Add sh files to gitignore
+ M data/processed/dataset.pkl
+ M data/processed/structures.json.gz
+ M data/raw/matbench_perovskites.pkl
+?? logs/
+
+==> Python
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/bin/python
+Python 3.11.15
+
+==> GPU
+Wed May 13 15:12:42 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.20             Driver Version: 580.126.20     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A6000               On  |   00000000:01:00.0 Off |                  Off |
+| 39%   61C    P2            116W /  300W |    2130MiB /  49140MiB |     47%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A6000               On  |   00000000:25:00.0 Off |                  Off |
+| 30%   31C    P8              8W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A6000               On  |   00000000:41:00.0 Off |                  Off |
+| 30%   34C    P8             15W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A6000               On  |   00000000:61:00.0 Off |                  Off |
+| 30%   30C    P8             19W /  300W |   10847MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA RTX A6000               On  |   00000000:81:00.0 Off |                  Off |
+| 30%   26C    P8              9W /  300W |   41900MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA RTX A6000               On  |   00000000:A1:00.0 Off |                  Off |
+| 30%   30C    P8             22W /  300W |   15718MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA RTX A6000               On  |   00000000:C2:00.0 Off |                  Off |
+| 30%   28C    P8              8W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A         4180746      C   python                                  526MiB |
+|    0   N/A  N/A         4180776      C   python                                  526MiB |
+|    0   N/A  N/A         4180782      C   python                                  526MiB |
+|    0   N/A  N/A         4180788      C   python                                  526MiB |
+|    1   N/A  N/A         2549917      C   VLLM::Worker_TP0                      41888MiB |
+|    2   N/A  N/A         2549918      C   VLLM::Worker_TP1                      41888MiB |
+|    3   N/A  N/A            5424      C   /usr/local/bin/python                  6948MiB |
+|    3   N/A  N/A            5556      C   /usr/local/bin/python                  3884MiB |
+|    4   N/A  N/A         2549919      C   VLLM::Worker_TP2                      41888MiB |
+|    5   N/A  N/A            5334      C   python                                15708MiB |
+|    6   N/A  N/A         2549920      C   VLLM::Worker_TP3                      41888MiB |
++-----------------------------------------------------------------------------------------+
+
+==> Dependency check
+torch: 2.11.0+cu130
+torch cuda: 13.0
+cuda available: True
+device: NVIDIA RTX A6000
+matmul precision: high
+pyg ok
+xgb ok
+matgl/lightning ok
+
+==> Clean runtime outputs
+
+==> Prepare data
+Loaded dataset with 18928 samples
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/data/processed/dataset.pkl
+
+==> Make splits and budgets
+Created random_iid budgets: B500, B1000, B2000, B4000, B8000, Bfull
+Created element_set budgets: B500, B1000, B2000, B4000, B8000, Bfull
+
+==> Preflight check
+PREFLIGHT PASSED
+
+==> Run experiment matrix
+
+============================================================
+==> Running XGB / random_iid
+Config:  configs/experiments/descriptor_xgb.yaml
+Split:   random_iid
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 03:13:09 PM MSK 2026
+============================================================
+Completed 12 run(s)
+
+============================================================
+==> Running CGCNN / random_iid
+Config:  configs/experiments/cgcnn.yaml
+Split:   random_iid
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 03:15:22 PM MSK 2026
+============================================================
+Completed 12 run(s)
+
+============================================================
+==> Running MatGL / random_iid
+Config:  configs/experiments/matgl.yaml
+Split:   random_iid
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 03:42:18 PM MSK 2026
+============================================================
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.39it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 40.60it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 37.77it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.07it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 37.84it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.58it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.20it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.38it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 41.26it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 38.14it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.31it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.61it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+Completed 12 run(s)
+
+============================================================
+==> Running XGB / element_set
+Config:  configs/experiments/descriptor_xgb.yaml
+Split:   element_set
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 04:19:58 PM MSK 2026
+============================================================
+Completed 12 run(s)
+
+============================================================
+==> Running CGCNN / element_set
+Config:  configs/experiments/cgcnn.yaml
+Split:   element_set
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 04:22:05 PM MSK 2026
+============================================================
+Completed 12 run(s)
+
+============================================================
+==> Running MatGL / element_set
+Config:  configs/experiments/matgl.yaml
+Split:   element_set
+Budgets: B500,B2000,B8000,Bfull
+Seeds:   42,43,44
+Time:    Wed May 13 05:05:03 PM MSK 2026
+============================================================
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.53it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.42it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 23.24it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.34it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 23.79it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 23.98it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.68it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.38it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.073 val_RMSE:  
+                                                               0.095            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.078 train_RMSE:
+                                                               0.100            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 23.46it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:01 • 0:00:00 24.37it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 36.19it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 39.73it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.071 val_RMSE:  
+                                                               0.093            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.079 train_RMSE:
+                                                               0.102            
+Completed 12 run(s)
+
+==> Collect results
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/summary/results.csv with 72 rows
+
+==> Validate results and artifact paths
+Validated 72 result row(s)
+
+==> Final summary check
+summary path: /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/summary/results.csv
+rows: 72
+
+Rows by model:
+model_name
+cgcnn_optimized            24
+descriptor_xgb_expanded    24
+matgl_megnet_frozen        24
+dtype: int64
+
+Rows by split:
+split_id
+element_set_seed_42_80_10_10    36
+random_iid_seed_42_80_10_10     36
+dtype: int64
+
+Rows by budget:
+budget_name
+B2000    18
+B500     18
+B8000    18
+Bfull    18
+dtype: int64
+
+Rows by seed:
+model_seed
+42    24
+43    24
+44    24
+dtype: int64
+
+Preview:
+             model_name                     split_id budget_name  model_seed      mae     rmse       r2                                                                             model_path                                                             history_path
+        cgcnn_optimized  random_iid_seed_42_80_10_10        B500          42 0.436452 0.580978 0.412597                         outputs/models/cgcnn/random_iid_cgcnn_optimized_B500_seed42.pt          outputs/runs/history/random_iid_cgcnn_optimized_B500_seed42.csv
+        cgcnn_optimized element_set_seed_42_80_10_10        B500          42 0.531500 0.712640 0.102531                        outputs/models/cgcnn/element_set_cgcnn_optimized_B500_seed42.pt         outputs/runs/history/element_set_cgcnn_optimized_B500_seed42.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10        B500          43 0.434398 0.572277 0.430059                         outputs/models/cgcnn/random_iid_cgcnn_optimized_B500_seed43.pt          outputs/runs/history/random_iid_cgcnn_optimized_B500_seed43.csv
+        cgcnn_optimized element_set_seed_42_80_10_10        B500          43 0.543006 0.715847 0.094434                        outputs/models/cgcnn/element_set_cgcnn_optimized_B500_seed43.pt         outputs/runs/history/element_set_cgcnn_optimized_B500_seed43.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10        B500          44 0.443664 0.580914 0.412725                         outputs/models/cgcnn/random_iid_cgcnn_optimized_B500_seed44.pt          outputs/runs/history/random_iid_cgcnn_optimized_B500_seed44.csv
+        cgcnn_optimized element_set_seed_42_80_10_10        B500          44 0.534746 0.693686 0.149635                        outputs/models/cgcnn/element_set_cgcnn_optimized_B500_seed44.pt         outputs/runs/history/element_set_cgcnn_optimized_B500_seed44.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B2000          42 0.283478 0.377829 0.751568                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B2000_seed42.pt         outputs/runs/history/random_iid_cgcnn_optimized_B2000_seed42.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B2000          42 0.274603 0.379371 0.745664                       outputs/models/cgcnn/element_set_cgcnn_optimized_B2000_seed42.pt        outputs/runs/history/element_set_cgcnn_optimized_B2000_seed42.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B2000          43 0.255228 0.349690 0.787194                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B2000_seed43.pt         outputs/runs/history/random_iid_cgcnn_optimized_B2000_seed43.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B2000          43 0.246356 0.338263 0.797797                       outputs/models/cgcnn/element_set_cgcnn_optimized_B2000_seed43.pt        outputs/runs/history/element_set_cgcnn_optimized_B2000_seed43.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B2000          44 0.318759 0.433243 0.673352                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B2000_seed44.pt         outputs/runs/history/random_iid_cgcnn_optimized_B2000_seed44.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B2000          44 0.249415 0.347940 0.786062                       outputs/models/cgcnn/element_set_cgcnn_optimized_B2000_seed44.pt        outputs/runs/history/element_set_cgcnn_optimized_B2000_seed44.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B8000          42 0.159515 0.228939 0.908787                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B8000_seed42.pt         outputs/runs/history/random_iid_cgcnn_optimized_B8000_seed42.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B8000          42 0.168517 0.239185 0.898901                       outputs/models/cgcnn/element_set_cgcnn_optimized_B8000_seed42.pt        outputs/runs/history/element_set_cgcnn_optimized_B8000_seed42.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B8000          43 0.170160 0.242084 0.898012                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B8000_seed43.pt         outputs/runs/history/random_iid_cgcnn_optimized_B8000_seed43.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B8000          43 0.254978 0.334816 0.801897                       outputs/models/cgcnn/element_set_cgcnn_optimized_B8000_seed43.pt        outputs/runs/history/element_set_cgcnn_optimized_B8000_seed43.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       B8000          44 0.180296 0.251307 0.890092                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B8000_seed44.pt         outputs/runs/history/random_iid_cgcnn_optimized_B8000_seed44.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       B8000          44 0.208222 0.288303 0.853115                       outputs/models/cgcnn/element_set_cgcnn_optimized_B8000_seed44.pt        outputs/runs/history/element_set_cgcnn_optimized_B8000_seed44.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       Bfull          42 0.099528 0.135843 0.967886                        outputs/models/cgcnn/random_iid_cgcnn_optimized_Bfull_seed42.pt         outputs/runs/history/random_iid_cgcnn_optimized_Bfull_seed42.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       Bfull          42 0.124759 0.170412 0.948681                       outputs/models/cgcnn/element_set_cgcnn_optimized_Bfull_seed42.pt        outputs/runs/history/element_set_cgcnn_optimized_Bfull_seed42.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       Bfull          43 0.133998 0.195432 0.933532                        outputs/models/cgcnn/random_iid_cgcnn_optimized_Bfull_seed43.pt         outputs/runs/history/random_iid_cgcnn_optimized_Bfull_seed43.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       Bfull          43 0.130608 0.185763 0.939019                       outputs/models/cgcnn/element_set_cgcnn_optimized_Bfull_seed43.pt        outputs/runs/history/element_set_cgcnn_optimized_Bfull_seed43.csv
+        cgcnn_optimized  random_iid_seed_42_80_10_10       Bfull          44 0.127284 0.183293 0.941534                        outputs/models/cgcnn/random_iid_cgcnn_optimized_Bfull_seed44.pt         outputs/runs/history/random_iid_cgcnn_optimized_Bfull_seed44.csv
+        cgcnn_optimized element_set_seed_42_80_10_10       Bfull          44 0.151597 0.214912 0.918379                       outputs/models/cgcnn/element_set_cgcnn_optimized_Bfull_seed44.pt        outputs/runs/history/element_set_cgcnn_optimized_Bfull_seed44.csv
+descriptor_xgb_expanded  random_iid_seed_42_80_10_10        B500          42 0.387768 0.511045 0.545498  outputs/models/descriptor_baseline/random_iid_descriptor_xgb_expanded_B500_seed42.pkl  outputs/runs/history/random_iid_descriptor_xgb_expanded_B500_seed42.csv
+descriptor_xgb_expanded element_set_seed_42_80_10_10        B500          42 0.395971 0.524191 0.514423 outputs/models/descriptor_baseline/element_set_descriptor_xgb_expanded_B500_seed42.pkl outputs/runs/history/element_set_descriptor_xgb_expanded_B500_seed42.csv
+descriptor_xgb_expanded  random_iid_seed_42_80_10_10        B500          43 0.387930 0.512126 0.543575  outputs/models/descriptor_baseline/random_iid_descriptor_xgb_expanded_B500_seed43.pkl  outputs/runs/history/random_iid_descriptor_xgb_expanded_B500_seed43.csv
+descriptor_xgb_expanded element_set_seed_42_80_10_10        B500          43 0.396239 0.524577 0.513708 outputs/models/descriptor_baseline/element_set_descriptor_xgb_expanded_B500_seed43.pkl outputs/runs/history/element_set_descriptor_xgb_expanded_B500_seed43.csv
+descriptor_xgb_expanded  random_iid_seed_42_80_10_10        B500          44 0.387467 0.510962 0.545646  outputs/models/descriptor_baseline/random_iid_descriptor_xgb_expanded_B500_seed44.pkl  outputs/runs/history/random_iid_descriptor_xgb_expanded_B500_seed44.csv
+descriptor_xgb_expanded element_set_seed_42_80_10_10        B500          44 0.392303 0.520952 0.520404 outputs/models/descriptor_baseline/element_set_descriptor_xgb_expanded_B500_seed44.pkl outputs/runs/history/element_set_descriptor_xgb_expanded_B500_seed44.csv
+
+PROTOCOL RESULT CHECK PASSED
+
+============================================================
+PROTOCOL FINISHED SUCCESSFULLY
+End: Wed May 13 06:01:05 PM MSK 2026
+Results: outputs/summary/results.csv
+============================================================

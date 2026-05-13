@@ -1,0 +1,144 @@
+============================================================
+SMOKE TEST
+3 models x random_iid x B500 x seed 42 = 3 runs
+Job ID: 4765
+Node: aichem
+Start: Wed May 13 03:02:53 PM MSK 2026
+============================================================
+
+==> Git state
+4b4101b Use default MatGL dataset cache
+?? launch.sh
+?? logs/
+?? smoke.sh
+
+==> Python
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/bin/python
+Python 3.11.15
+
+==> GPU
+Wed May 13 15:02:53 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.20             Driver Version: 580.126.20     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A6000               On  |   00000000:01:00.0 Off |                  Off |
+| 37%   61C    P2            116W /  300W |    2541MiB /  49140MiB |     46%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A6000               On  |   00000000:25:00.0 Off |                  Off |
+| 30%   31C    P8              8W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A6000               On  |   00000000:41:00.0 Off |                  Off |
+| 30%   33C    P8             15W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A6000               On  |   00000000:61:00.0 Off |                  Off |
+| 30%   30C    P8             19W /  300W |   10847MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA RTX A6000               On  |   00000000:81:00.0 Off |                  Off |
+| 30%   26C    P8              8W /  300W |   41900MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA RTX A6000               On  |   00000000:A1:00.0 Off |                  Off |
+| 30%   30C    P8             22W /  300W |   15718MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA RTX A6000               On  |   00000000:C2:00.0 Off |                  Off |
+| 30%   28C    P8              7W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A         4168257      C   ...innikov/miniconda3/bin/python        406MiB |
+|    0   N/A  N/A         4180746      C   python                                  526MiB |
+|    0   N/A  N/A         4180776      C   python                                  526MiB |
+|    0   N/A  N/A         4180782      C   python                                  526MiB |
+|    0   N/A  N/A         4180788      C   python                                  526MiB |
+|    1   N/A  N/A         2549917      C   VLLM::Worker_TP0                      41888MiB |
+|    2   N/A  N/A         2549918      C   VLLM::Worker_TP1                      41888MiB |
+|    3   N/A  N/A            5424      C   /usr/local/bin/python                  6948MiB |
+|    3   N/A  N/A            5556      C   /usr/local/bin/python                  3884MiB |
+|    4   N/A  N/A         2549919      C   VLLM::Worker_TP2                      41888MiB |
+|    5   N/A  N/A            5334      C   python                                15708MiB |
+|    6   N/A  N/A         2549920      C   VLLM::Worker_TP3                      41888MiB |
++-----------------------------------------------------------------------------------------+
+
+==> Dependency check
+torch: 2.11.0+cu130
+torch cuda: 13.0
+cuda available: True
+device: NVIDIA RTX A6000
+matmul precision: high
+pyg ok
+xgb ok
+matgl/lightning ok
+
+==> Clean smoke outputs
+
+==> Prepare data
+Loaded dataset with 18928 samples
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/data/processed/dataset.pkl
+
+==> Make splits and budgets
+Created random_iid budgets: B500, B1000, B2000, B4000, B8000, Bfull
+Created element_set budgets: B500, B1000, B2000, B4000, B8000, Bfull
+
+==> Smoke XGB
+Completed 1 run(s)
+
+==> Smoke CGCNN
+Completed 1 run(s)
+
+==> Smoke MatGL
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 99/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 37.52it/s val_Total_Loss:  
+                                                               0.005 val_MAE:   
+                                                               0.072 val_RMSE:  
+                                                               0.094            
+                                                               train_Total_Loss:
+                                                               0.005 train_MAE: 
+                                                               0.077 train_RMSE:
+                                                               0.100            
+Completed 1 run(s)
+
+==> Collect
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/summary/results.csv with 3 rows
+
+==> Validate results and artifacts
+Validated 3 result row(s)
+
+==> Smoke summary
+rows: 3
+             model_name                    split_id budget_name  model_seed      mae     rmse       r2                                                            predictions_path                                                                            model_path                                                                history_path
+        cgcnn_optimized random_iid_seed_42_80_10_10        B500          42 0.513740 0.667381 0.224889         outputs/runs/predictions/random_iid_cgcnn_optimized_B500_seed42.csv                        outputs/models/cgcnn/random_iid_cgcnn_optimized_B500_seed42.pt             outputs/runs/history/random_iid_cgcnn_optimized_B500_seed42.csv
+descriptor_xgb_expanded random_iid_seed_42_80_10_10        B500          42 0.387768 0.511045 0.545498 outputs/runs/predictions/random_iid_descriptor_xgb_expanded_B500_seed42.csv outputs/models/descriptor_baseline/random_iid_descriptor_xgb_expanded_B500_seed42.pkl     outputs/runs/history/random_iid_descriptor_xgb_expanded_B500_seed42.csv
+    matgl_megnet_frozen random_iid_seed_42_80_10_10        B500          42 0.303222 0.397441 0.725107     outputs/runs/predictions/random_iid_matgl_megnet_frozen_B500_seed42.csv                       outputs/models/matgl/random_iid_matgl_megnet_frozen_B500_seed42 outputs/runs/history/random_iid_matgl_megnet_frozen_B500_seed42/metrics.csv
+SMOKE RESULT CHECK PASSED
+
+============================================================
+SMOKE FINISHED SUCCESSFULLY
+End: Wed May 13 03:07:27 PM MSK 2026
+============================================================
