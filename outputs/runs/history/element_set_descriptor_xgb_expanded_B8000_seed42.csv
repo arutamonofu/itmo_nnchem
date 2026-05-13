@@ -1,0 +1,2 @@
+stage,model_kind,feature_set,n_features,train_mae,train_rmse,train_r2
+fit,xgb,expanded,51,0.24267889911318893,0.31664615597659074,0.8085491249967395

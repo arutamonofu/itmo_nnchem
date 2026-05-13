@@ -5,11 +5,7 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
-outputs/runs/
-outputs/summary/
-results/
 MGLDataset/
-reports/
 
 .venv/
 venv/
