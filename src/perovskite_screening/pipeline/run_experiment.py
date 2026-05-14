@@ -59,6 +59,7 @@ def run_mean_baseline(
         mae=metrics["mae"],
         rmse=metrics["rmse"],
         r2=metrics["r2"],
+        mape=metrics["mape"],
         predictions_path=rel_path,
         split_strategy=split_strategy,
         config=config,

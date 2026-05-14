@@ -279,6 +279,7 @@ def run_matgl_experiment(
         mae=test_metrics["mae"],
         rmse=test_metrics["rmse"],
         r2=test_metrics["r2"],
+        mape=test_metrics["mape"],
         predictions_path=predictions_path,
         model_path=model_path,
         history_path=history_path,

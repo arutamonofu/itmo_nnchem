@@ -8,3 +8,4 @@ def test_compute_regression_metrics() -> None:
     assert metrics["mae"] == 0.5
     assert metrics["rmse"] > 0
     assert "r2" in metrics
+    assert metrics["mape"] == 25.0

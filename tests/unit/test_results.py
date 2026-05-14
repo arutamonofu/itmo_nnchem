@@ -22,6 +22,7 @@ def test_ordered_result_frame_accepts_required_columns() -> None:
         "mae": 1.0,
         "rmse": 1.2,
         "r2": 0.0,
+        "mape": 10.0,
         "n_train": 500,
         "n_val": 100,
         "n_test": 100,

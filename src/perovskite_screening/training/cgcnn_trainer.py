@@ -340,6 +340,7 @@ def run_cgcnn_experiment(
         mae=metrics["mae"],
         rmse=metrics["rmse"],
         r2=metrics["r2"],
+        mape=metrics["mape"],
         predictions_path=predictions_path,
         model_path=model_path,
         history_path=history_path,
