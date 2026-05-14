@@ -5,6 +5,7 @@ from pathlib import Path
 
 from perovskite_screening.config import ProjectConfig
 from perovskite_screening.data.budgets import load_budget_metadata, resolve_budgets
+from perovskite_screening.evaluation.tail_metrics import write_tail_metrics
 from perovskite_screening.io.paths import project_path
 from perovskite_screening.io.results import collect_results, validate_results
 from perovskite_screening.pipeline.make_splits import make_splits
@@ -50,6 +51,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate-results", help="Validate result and prediction files.")
     validate.add_argument("--runs-dir", default="outputs/runs")
+
+    tail = subparsers.add_parser(
+        "evaluate-tail-metrics",
+        help="Compute target-tail evaluation metrics from collected test predictions.",
+    )
+    tail.add_argument("--results", default="outputs/summary/results.csv")
+    tail.add_argument("--target-bins", default="data/splits/target_tails/target_bins.csv")
+    tail.add_argument("--out", default="outputs/summary/tail_metrics.csv")
     return parser
 
 
@@ -105,6 +114,21 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "validate-results":
         total_rows = validate_results(_resolve_path(args.runs_dir))
         print(f"Validated {total_rows} result row(s)")
+        return
+
+    if args.command == "evaluate-tail-metrics":
+        output_path = _resolve_path(args.out)
+        tail_metrics = write_tail_metrics(
+            _resolve_path(args.results),
+            output_path,
+            target_bins_path=_resolve_path(args.target_bins),
+            project_root=project_path(),
+        )
+        summary = tail_metrics.attrs.get("tail_metrics_summary", {})
+        print(f"Processed {summary.get('result_rows_processed', 0)} result row(s)")
+        print(f"Found {summary.get('prediction_files_found', 0)} prediction file(s)")
+        print(f"Skipped {summary.get('skipped', 0)} result row(s)")
+        print(f"Wrote {output_path} with {len(tail_metrics)} row(s)")
         return
 
     parser.error(f"Unknown command: {args.command}")

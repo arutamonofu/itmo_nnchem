@@ -27,6 +27,7 @@ final-smoke:
 	$(CLI) run-suite --config configs/experiments/cgcnn.yaml --split-strategy random_iid --budgets B500 --seeds 42
 	$(CLI) run-suite --config configs/experiments/matgl.yaml --split-strategy random_iid --budgets B500 --seeds 42
 	$(CLI) collect --runs-dir outputs/runs --out outputs/summary/results.csv
+	$(CLI) evaluate-tail-metrics --results outputs/summary/results.csv --out outputs/summary/tail_metrics.csv
 	$(CLI) validate-results --runs-dir outputs/runs
 
 all: data smoke

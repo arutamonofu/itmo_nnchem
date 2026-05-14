@@ -70,6 +70,9 @@ perovskite-screening run-suite \
   --seeds 42
 
 perovskite-screening collect --runs-dir outputs/runs --out outputs/summary/results.csv
+perovskite-screening evaluate-tail-metrics \
+  --results outputs/summary/results.csv \
+  --out outputs/summary/tail_metrics.csv
 perovskite-screening validate-results --runs-dir outputs/runs
 ```
 
@@ -195,3 +198,20 @@ outputs/summary/results.csv
 Required result columns are enforced by `perovskite-screening validate-results`.
 Each result row includes `model_params_json`, a JSON object with the effective
 model parameters used for the run.
+
+## Target-Tail Evaluation
+
+We do not train a separate model on a target-tail split. Target tails are
+evaluation slices only. After each model is trained on `random_iid` or
+`element_set`, its test predictions are joined to
+`data/splits/target_tails/target_bins.csv` by `sample_id`; metrics are then
+reported for `overall`, `low_10`, `middle_80`, and `high_10` slices, with
+optional 5% tails included as `low_5`, `middle_90`, and `high_5`.
+
+Write the tail summary with:
+
+```bash
+perovskite-screening evaluate-tail-metrics \
+  --results outputs/summary/results.csv \
+  --out outputs/summary/tail_metrics.csv
+```

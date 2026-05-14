@@ -10,6 +10,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 DATASET_PATH = ROOT / "data" / "processed" / "dataset.pkl"
 SPLIT_ROOT = ROOT / "data" / "splits"
+TARGET_TAIL_ROOT = SPLIT_ROOT / "target_tails"
 SPLIT_STRATEGIES = ("random_iid", "element_set")
 SPLIT_NAMES = ("train", "val", "test")
 REQUIRED_BUDGETS = ("B500", "B2000", "B8000", "Bfull")
@@ -174,6 +175,45 @@ def validate_budgets(strategy: str, errors: list[str]) -> None:
         previous = current
 
 
+def validate_target_tail_artifacts(errors: list[str]) -> None:
+    target_bins_path = TARGET_TAIL_ROOT / "target_bins.csv"
+    thresholds_path = TARGET_TAIL_ROOT / "tail_thresholds.json"
+
+    if not target_bins_path.exists():
+        errors.append(
+            f"Missing target-tail bins: {rel(target_bins_path)}. Run `{MAKE_SPLITS_COMMAND}`."
+        )
+    else:
+        try:
+            target_bins = pd.read_csv(target_bins_path, nrows=5)
+        except Exception as exc:  # pragma: no cover - defensive CLI reporting
+            errors.append(
+                f"Could not read {rel(target_bins_path)}: {exc}. Recreate splits with `{MAKE_SPLITS_COMMAND}`."
+            )
+        else:
+            expected = ["sample_id", "target", "target_bin_10", "target_bin_5"]
+            missing = [column for column in expected if column not in target_bins.columns]
+            if missing:
+                errors.append(
+                    f"{rel(target_bins_path)} is missing column(s): {missing}. "
+                    f"Recreate splits with `{MAKE_SPLITS_COMMAND}`."
+                )
+
+    if not thresholds_path.exists():
+        errors.append(
+            f"Missing target-tail thresholds: {rel(thresholds_path)}. Run `{MAKE_SPLITS_COMMAND}`."
+        )
+    else:
+        thresholds = load_json(thresholds_path, errors)
+        if thresholds is not None:
+            missing = [key for key in ("q05", "q10", "q90", "q95") if key not in thresholds]
+            if missing:
+                errors.append(
+                    f"{rel(thresholds_path)} is missing threshold key(s): {missing}. "
+                    f"Recreate splits with `{MAKE_SPLITS_COMMAND}`."
+                )
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -190,6 +230,7 @@ def main() -> int:
     for strategy in SPLIT_STRATEGIES:
         validate_split_files(strategy, errors)
         validate_budgets(strategy, errors)
+    validate_target_tail_artifacts(errors)
 
     if errors:
         print("Preflight validation failed for the reduced final protocol:", file=sys.stderr)
@@ -204,6 +245,7 @@ def main() -> int:
             f"budgets present ({', '.join(REQUIRED_BUDGETS)})"
         )
     print("- configs: descriptor_xgb.yaml, cgcnn.yaml, matgl.yaml")
+    print("- target tails: target_bins.csv and tail_thresholds.json present")
     return 0
 
 
