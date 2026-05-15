@@ -1,0 +1,25 @@
+project:
+  name: perovskite_screening
+
+data:
+  dataset_name: matbench_perovskites
+  target: formation_energy
+  target_unit: eV/unit cell
+  processed_path: data/processed/dataset.pkl
+
+splits:
+  random_seed: 42
+  default_strategy: random_iid
+
+model:
+  family: matgl
+  params:
+    strategy: differential
+    pretrained_model_name: MEGNet-Eform-MP-2018.6.1
+    epochs: 200
+    batch_size: 16
+    cutoff: 4.0
+    device: cuda
+    num_workers: 0
+    progress_bar: true
+    early_stopping_patience: 30
