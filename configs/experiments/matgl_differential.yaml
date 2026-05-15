@@ -22,4 +22,5 @@ model:
     device: cuda
     num_workers: 0
     progress_bar: true
+    force_reload_cache: true
     early_stopping_patience: 30

@@ -23,6 +23,8 @@ from perovskite_screening.models.matgl import (
     build_matgl_model,
     configure_matgl_optimizer,
     make_transformed_target_model,
+    matgl_dataset_cache_name,
+    matgl_dataset_cache_root,
     prepare_matgl_datasets,
     require_matgl_dependencies,
 )
@@ -55,6 +57,7 @@ def matgl_effective_params(config: ProjectConfig, *, strategy_patience: int | No
         "device": str(params.get("device", "cuda")),
         "num_workers": int(params.get("num_workers", 0)),
         "progress_bar": bool(params.get("progress_bar", True)),
+        "force_reload_cache": bool(params.get("force_reload_cache", False)),
     }
     configured_patience = params.get("early_stopping_patience")
     if configured_patience is not None:
@@ -128,6 +131,7 @@ def train_matgl(
     pretrained_model_name = str(params.get("pretrained_model_name", PRETRAINED_MODEL_NAME))
     num_workers = int(params.get("num_workers", 0))
     progress_bar = bool(params.get("progress_bar", True))
+    force_reload_cache = bool(params.get("force_reload_cache", False))
     device_name = _resolve_device_name(torch, str(params.get("device", "cuda")))
     model_name = f"{BASE_MODEL_NAME}_{strategy}"
     artifact_stem = run_artifact_stem(
@@ -143,6 +147,11 @@ def train_matgl(
         val_df,
         test_df,
         cutoff=cutoff,
+        split_strategy=split_strategy,
+        model_name=model_name,
+        budget_name=budget_name,
+        seed=seed,
+        force_reload_cache=force_reload_cache,
     )
     train_loader, val_loader, _ = MGLDataLoader(
         train_data=train_dataset,
@@ -191,12 +200,68 @@ def train_matgl(
         deterministic=True,
         enable_progress_bar=progress_bar,
     )
+    train_cache_name = matgl_dataset_cache_name(
+        split_strategy=split_strategy,
+        model_name=model_name,
+        budget_name=budget_name,
+        seed=seed,
+        cutoff=cutoff,
+        partition="train",
+    )
+    val_cache_name = matgl_dataset_cache_name(
+        split_strategy=split_strategy,
+        model_name=model_name,
+        budget_name=budget_name,
+        seed=seed,
+        cutoff=cutoff,
+        partition="val",
+    )
+    test_cache_name = matgl_dataset_cache_name(
+        split_strategy=split_strategy,
+        model_name=model_name,
+        budget_name=budget_name,
+        seed=seed,
+        cutoff=cutoff,
+        partition="test",
+    )
     LOGGER.info(
-        "Starting MatGL fine-tuning: strategy=%s, patience=%s, budget=%s, device=%s",
+        "Starting MatGL fine-tuning: strategy=%s, split=%s, budget=%s, seed=%s, cutoff=%s, "
+        "patience=%s, device=%s, force_reload_cache=%s",
         strategy,
-        patience,
+        split_strategy,
         budget_name,
+        seed,
+        cutoff,
+        patience,
         device_name,
+        force_reload_cache,
+    )
+    LOGGER.info(
+        "MatGL dataset sizes: train_df=%s, train_dataset=%s, val_df=%s, val_dataset=%s, "
+        "test_df=%s, test_dataset=%s",
+        len(train_df),
+        len(train_dataset),
+        len(val_df),
+        len(val_dataset),
+        len(test_df),
+        len(test_dataset),
+    )
+    LOGGER.info(
+        "MatGL loader batches: train=%s, val=%s",
+        len(train_loader),
+        len(val_loader),
+    )
+    LOGGER.info(
+        "MatGL cache names: train=%s, val=%s, test=%s",
+        train_cache_name,
+        val_cache_name,
+        test_cache_name,
+    )
+    LOGGER.info(
+        "MatGL cache roots: train=%s, val=%s, test=%s",
+        matgl_dataset_cache_root(train_cache_name),
+        matgl_dataset_cache_root(val_cache_name),
+        matgl_dataset_cache_root(test_cache_name),
     )
     trainer.fit(model=lightning_model, train_dataloaders=train_loader, val_dataloaders=val_loader)
     history_path = (Path(history_logger.log_dir) / "metrics.csv").relative_to(project_path()).as_posix()

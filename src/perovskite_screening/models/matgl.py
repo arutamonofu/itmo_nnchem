@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import inspect
+import logging
+import re
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 
 
+LOGGER = logging.getLogger(__name__)
 PRETRAINED_MODEL_NAME = "MEGNet-Eform-MP-2018.6.1"
 ALLOWED_MATGL_STRATEGIES = {"frozen", "differential", "full"}
 
@@ -42,33 +47,138 @@ def require_matgl_dependencies() -> dict[str, Any]:
     }
 
 
+def _format_cache_float(value: float) -> str:
+    return str(float(value)).replace(".", "p").replace("-", "m")
+
+
+def matgl_dataset_cache_name(
+    *,
+    split_strategy: str,
+    model_name: str,
+    budget_name: str,
+    seed: int,
+    cutoff: float,
+    partition: str,
+) -> str:
+    raw_name = (
+        f"{split_strategy}_{model_name}_{budget_name}_seed{seed}_"
+        f"cutoff{_format_cache_float(cutoff)}_{partition}"
+    )
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", raw_name).strip("_")
+
+
+def matgl_dataset_cache_root(cache_name: str) -> str:
+    return (Path("MGLDataset") / cache_name).as_posix()
+
+
+def _constructor_supports_kwarg(constructor, kwarg: str) -> bool:
+    try:
+        signature = inspect.signature(constructor)
+    except (TypeError, ValueError):
+        return False
+    for parameter in signature.parameters.values():
+        if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+            return True
+    return kwarg in signature.parameters
+
+
+def _mgl_dataset_kwargs(
+    dataset_class,
+    *,
+    name: str,
+    force_reload_cache: bool,
+) -> dict[str, object]:
+    supported: dict[str, object] = {}
+    if _constructor_supports_kwarg(dataset_class, "name"):
+        supported["name"] = name
+    elif _constructor_supports_kwarg(dataset_class, "root"):
+        supported["root"] = matgl_dataset_cache_root(name)
+    else:
+        raise RuntimeError(
+            "MGLDataset exposes neither 'name' nor 'root'; unique MatGL cache namespaces cannot be enforced. "
+            "Use a MatGL version that supports MGLDataset(name=...) or MGLDataset(root=...)."
+        )
+
+    if _constructor_supports_kwarg(dataset_class, "force_reload"):
+        supported["force_reload"] = force_reload_cache
+    elif _constructor_supports_kwarg(dataset_class, "clear_processed"):
+        supported["clear_processed"] = force_reload_cache
+    elif force_reload_cache:
+        LOGGER.warning("MGLDataset does not expose 'force_reload'; ignoring force_reload_cache=true.")
+    return supported
+
+
+def validate_matgl_dataset_size(*, partition: str, expected_size: int, dataset) -> None:
+    actual_size = len(dataset)
+    if actual_size != expected_size:
+        raise ValueError(
+            "MatGL dataset cache mismatch: "
+            f"partition={partition}, expected {expected_size} structures, got {actual_size}. "
+            "This likely indicates stale/shared MGLDataset cache. "
+            "Clear MGLDataset/ or use unique cache names."
+        )
+
+
 def prepare_matgl_datasets(
     train_df,
     val_df,
     test_df,
     *,
     cutoff: float = 4.0,
+    split_strategy: str,
+    model_name: str,
+    budget_name: str,
+    seed: int,
+    force_reload_cache: bool = False,
 ):
     deps = require_matgl_dependencies()
     converter = deps["Structure2Graph"](element_types=deps["DEFAULT_ELEMENTS"], cutoff=cutoff)
     dataset_class = deps["MGLDataset"]
-    return (
-        dataset_class(
-            structures=train_df["structure"].tolist(),
-            converter=converter,
-            labels={"labels": train_df["target"].to_numpy()},
-        ),
-        dataset_class(
-            structures=val_df["structure"].tolist(),
-            converter=converter,
-            labels={"labels": val_df["target"].to_numpy()},
-        ),
-        dataset_class(
-            structures=test_df["structure"].tolist(),
-            converter=converter,
-            labels={"labels": test_df["target"].to_numpy()},
+    cache_names = {
+        partition: matgl_dataset_cache_name(
+            split_strategy=split_strategy,
+            model_name=model_name,
+            budget_name=budget_name,
+            seed=seed,
+            cutoff=cutoff,
+            partition=partition,
+        )
+        for partition in ("train", "val", "test")
+    }
+    train_dataset = dataset_class(
+        structures=train_df["structure"].tolist(),
+        converter=converter,
+        labels={"labels": train_df["target"].to_numpy()},
+        **_mgl_dataset_kwargs(
+            dataset_class,
+            name=cache_names["train"],
+            force_reload_cache=force_reload_cache,
         ),
     )
+    val_dataset = dataset_class(
+        structures=val_df["structure"].tolist(),
+        converter=converter,
+        labels={"labels": val_df["target"].to_numpy()},
+        **_mgl_dataset_kwargs(
+            dataset_class,
+            name=cache_names["val"],
+            force_reload_cache=force_reload_cache,
+        ),
+    )
+    test_dataset = dataset_class(
+        structures=test_df["structure"].tolist(),
+        converter=converter,
+        labels={"labels": test_df["target"].to_numpy()},
+        **_mgl_dataset_kwargs(
+            dataset_class,
+            name=cache_names["test"],
+            force_reload_cache=force_reload_cache,
+        ),
+    )
+    validate_matgl_dataset_size(partition="train", expected_size=len(train_df), dataset=train_dataset)
+    validate_matgl_dataset_size(partition="val", expected_size=len(val_df), dataset=val_dataset)
+    validate_matgl_dataset_size(partition="test", expected_size=len(test_df), dataset=test_dataset)
+    return train_dataset, val_dataset, test_dataset
 
 
 def build_matgl_model(*, pretrained_model_name: str = PRETRAINED_MODEL_NAME):
