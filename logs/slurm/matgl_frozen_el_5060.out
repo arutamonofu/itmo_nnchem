@@ -1,0 +1,214 @@
+============================================================
+MATGL FROZEN / ELEMENT_SET / SEED 42
+1 model x 1 split x 4 budgets x 1 seed = 4 runs
+This script DOES NOT clean outputs.
+Job ID: 5060
+Node: aichem
+Start: Sat May 16 07:22:15 AM MSK 2026
+============================================================
+
+==> Git state
+506ba0c Fix MatGL dataset cache namespaces
+?? logs/slurm/matgl_frozen_el_5060.err
+?? logs/slurm/matgl_frozen_el_5060.out
+
+==> Python
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/bin/python
+Python 3.11.15
+
+==> GPU
+Sat May 16 07:22:16 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.20             Driver Version: 580.126.20     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA RTX A6000               On  |   00000000:01:00.0 Off |                  Off |
+| 30%   51C    P2             81W /  300W |     917MiB /  49140MiB |      8%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA RTX A6000               On  |   00000000:25:00.0 Off |                  Off |
+| 30%   29C    P8              8W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA RTX A6000               On  |   00000000:41:00.0 Off |                  Off |
+| 30%   31C    P8             15W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA RTX A6000               On  |   00000000:61:00.0 Off |                  Off |
+| 30%   29C    P8             18W /  300W |   10847MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA RTX A6000               On  |   00000000:81:00.0 Off |                  Off |
+| 30%   23C    P8              9W /  300W |   41900MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA RTX A6000               On  |   00000000:A1:00.0 Off |                  Off |
+| 30%   29C    P8             22W /  300W |   15718MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA RTX A6000               On  |   00000000:C2:00.0 Off |                  Off |
+| 30%   25C    P8              8W /  300W |   41898MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A          436181      C   python3                                 262MiB |
+|    0   N/A  N/A         1725167      C   python                                  640MiB |
+|    1   N/A  N/A         2549917      C   VLLM::Worker_TP0                      41888MiB |
+|    2   N/A  N/A         2549918      C   VLLM::Worker_TP1                      41888MiB |
+|    3   N/A  N/A            5424      C   /usr/local/bin/python                  6948MiB |
+|    3   N/A  N/A            5556      C   /usr/local/bin/python                  3884MiB |
+|    4   N/A  N/A         2549919      C   VLLM::Worker_TP2                      41888MiB |
+|    5   N/A  N/A            5334      C   python                                15708MiB |
+|    6   N/A  N/A         2549920      C   VLLM::Worker_TP3                      41888MiB |
++-----------------------------------------------------------------------------------------+
+
+==> Dependency check
+torch: 2.11.0+cu130
+torch cuda: 13.0
+cuda available: True
+device: NVIDIA RTX A6000
+matmul precision: high
+matgl/lightning ok
+
+==> Clear MatGL graph cache
+
+==> Ensure data and splits exist
+Loaded dataset with 18928 samples
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/data/processed/dataset.pkl
+Created random_iid budgets: B500, B1000, B2000, B4000, B8000, Bfull
+Created element_set budgets: B500, B1000, B2000, B4000, B8000, Bfull
+
+==> Preflight
+B500 n_samples= 500
+B2000 n_samples= 2000
+B8000 n_samples= 8000
+Bfull n_samples= 15142
+PREFLIGHT PASSED
+
+==> Run MatGL frozen / element_set / seed 42
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 41/99 ━━━━━━━━━━━━━━━━ 32/32 0:00:00 • 0:00:00 44.23it/s val_Total_Loss:  
+                                                               0.079 val_MAE:   
+                                                               0.307 val_RMSE:  
+                                                               0.391            
+                                                               train_Total_Loss:
+                                                               0.022 train_MAE: 
+                                                               0.165 train_RMSE:
+                                                               0.207            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 47/99 ━━━━━━━━━━━━━━━━ 125/125 0:00:03 •       37.47it/s val_Total_Loss:  
+                                     0:00:00                   0.044 val_MAE:   
+                                                               0.233 val_RMSE:  
+                                                               0.292            
+                                                               train_Total_Loss:
+                                                               0.015 train_MAE: 
+                                                               0.137 train_RMSE:
+                                                               0.172            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 79/99 ━━━━━━━━━━━━━━━━ 500/500 0:00:11 •       43.99it/s val_Total_Loss:  
+                                     0:00:00                   0.026 val_MAE:   
+                                                               0.174 val_RMSE:  
+                                                               0.222            
+                                                               train_Total_Loss:
+                                                               0.014 train_MAE: 
+                                                               0.132 train_RMSE:
+                                                               0.164            
+┏━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┳━━━━━━━┓
+┃   ┃ Name  ┃ Type              ┃ Params ┃ Mode  ┃ FLOPs ┃
+┡━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━╇━━━━━━━┩
+│ 0 │ model │ MEGNet            │  189 K │ train │     0 │
+│ 1 │ mae   │ MeanAbsoluteError │      0 │ train │     0 │
+│ 2 │ rmse  │ MeanSquaredError  │      0 │ train │     0 │
+└───┴───────┴───────────────────┴────────┴───────┴───────┘
+Trainable params: 5.7 K                                                         
+Non-trainable params: 183 K                                                     
+Total params: 189 K                                                             
+Total estimated model params size (MB): 0                                       
+Modules in train mode: 109                                                      
+Modules in eval mode: 0                                                         
+Total FLOPs: 0                                                                  
+Epoch 72/99 ━━━━━━━━━━━━━━━━ 947/947 0:00:22 •       42.94it/s val_Total_Loss:  
+                                     0:00:00                   0.021 val_MAE:   
+                                                               0.161 val_RMSE:  
+                                                               0.202            
+                                                               train_Total_Loss:
+                                                               0.014 train_MAE: 
+                                                               0.129 train_RMSE:
+                                                               0.161            
+Completed 4 run(s)
+
+==> Collect results
+Wrote /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/summary/results.csv with 72 rows
+
+==> Validate results and artifacts
+Validated 72 result row(s)
+
+==> Check target rows
+         model_name                     split_id budget_name  model_seed      mae     rmse       r2                                                        model_path                                                                  history_path
+matgl_megnet_frozen element_set_seed_42_80_10_10        B500          42 0.305447 0.402124 0.714241  outputs/models/matgl/element_set_matgl_megnet_frozen_B500_seed42  outputs/runs/history/element_set_matgl_megnet_frozen_B500_seed42/metrics.csv
+matgl_megnet_frozen element_set_seed_42_80_10_10       B2000          42 0.236034 0.314316 0.825412 outputs/models/matgl/element_set_matgl_megnet_frozen_B2000_seed42 outputs/runs/history/element_set_matgl_megnet_frozen_B2000_seed42/metrics.csv
+matgl_megnet_frozen element_set_seed_42_80_10_10       B8000          42 0.178008 0.234564 0.902770 outputs/models/matgl/element_set_matgl_megnet_frozen_B8000_seed42 outputs/runs/history/element_set_matgl_megnet_frozen_B8000_seed42/metrics.csv
+matgl_megnet_frozen element_set_seed_42_80_10_10       Bfull          42 0.157676 0.203467 0.926841 outputs/models/matgl/element_set_matgl_megnet_frozen_Bfull_seed42 outputs/runs/history/element_set_matgl_megnet_frozen_Bfull_seed42/metrics.csv
+target rows: 4
+
+All rows by model:
+model_name
+cgcnn_optimized            24
+descriptor_xgb_expanded    24
+matgl_megnet_frozen        24
+dtype: int64
+
+MATGL FROZEN ELEMENT_SET SEED42 CHECK PASSED
+
+============================================================
+MATGL FROZEN ELEMENT_SET SEED42 FINISHED
+End: Sat May 16 08:21:55 AM MSK 2026
+Results: outputs/summary/results.csv
+============================================================

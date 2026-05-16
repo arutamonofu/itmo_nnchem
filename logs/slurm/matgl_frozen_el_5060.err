@@ -1,0 +1,104 @@
+[rank: 0] Seed set to 42
+Processing...
+  0%|          | 0/500 [00:00<?, ?it/s]/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/matgl/graph/_converters_pyg.py:75: UserWarning: The given NumPy array is not writable, and PyTorch does not support non-writable tensors. This means writing to this tensor will result in undefined behavior. You may want to copy the array to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at /pytorch/torch/csrc/utils/tensor_numpy.cpp:213.)
+  lattice = torch.as_tensor(lattice_matrix, dtype=matgl.float_th, device=device)
+ 87%|████████▋ | 434/500 [00:00<00:00, 4330.98it/s]100%|██████████| 500/500 [00:00<00:00, 4370.24it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 24%|██▍       | 462/1893 [00:00<00:00, 4617.23it/s] 49%|████▉     | 936/1893 [00:00<00:00, 4686.05it/s] 74%|███████▍  | 1406/1893 [00:00<00:00, 4691.46it/s] 99%|█████████▉| 1876/1893 [00:00<00:00, 4652.06it/s]100%|██████████| 1893/1893 [00:00<00:00, 4657.50it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 24%|██▍       | 455/1893 [00:00<00:00, 4544.35it/s] 49%|████▊     | 919/1893 [00:00<00:00, 4599.43it/s] 73%|███████▎  | 1383/1893 [00:00<00:00, 4617.76it/s] 98%|█████████▊| 1852/1893 [00:00<00:00, 4646.13it/s]100%|██████████| 1893/1893 [00:00<00:00, 4628.20it/s]
+Done!
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/matgl/utils/io.py:184: UserWarning: Incompatible model version detected! The code will continue to load the model but it is recommended that you provide a path to an updated model, increment your @model_version in model.json if you are confident that the changes are not problematic, or clear your ~/.matgl cache using `python -c "import matgl; matgl.clear_cache()"`
+  _check_ver(cls_, v)  # Check version of any subclasses too.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/plugins/environments/slurm.py:204: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python /mnt/tank/scratch/aartamonov/itmo_nnchem/src/perovsk ...
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+You are using a CUDA device ('NVIDIA RTX A6000') that has Tensor Cores. To properly utilize them, you should set `torch.set_float32_matmul_precision('medium' | 'high')` which will trade-off precision for performance. For more details, read https://pytorch.org/docs/stable/generated/torch.set_float32_matmul_precision.html#torch.set_float32_matmul_precision
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/loggers/csv_logs.py:268: Experiment logs directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B500_seed42/ exists and is not empty. Previous log files in this directory will be deleted when the new ones are saved!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:881: Checkpoint directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B500_seed42/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+[rank: 0] Seed set to 42
+Processing...
+  0%|          | 0/2000 [00:00<?, ?it/s] 22%|██▏       | 445/2000 [00:00<00:00, 4441.34it/s] 45%|████▍     | 893/2000 [00:00<00:00, 4460.82it/s] 67%|██████▋   | 1342/2000 [00:00<00:00, 4473.71it/s] 90%|████████▉ | 1794/2000 [00:00<00:00, 4489.82it/s]100%|██████████| 2000/2000 [00:00<00:00, 4475.24it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 441/1893 [00:00<00:00, 4406.76it/s] 47%|████▋     | 884/1893 [00:00<00:00, 4415.78it/s] 70%|███████   | 1329/1893 [00:00<00:00, 4427.67it/s] 94%|█████████▍| 1778/1893 [00:00<00:00, 4451.61it/s]100%|██████████| 1893/1893 [00:00<00:00, 4443.41it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 437/1893 [00:00<00:00, 4365.22it/s] 47%|████▋     | 881/1893 [00:00<00:00, 4407.95it/s] 70%|██████▉   | 1324/1893 [00:00<00:00, 4414.32it/s] 94%|█████████▎| 1772/1893 [00:00<00:00, 4436.47it/s]100%|██████████| 1893/1893 [00:00<00:00, 4418.65it/s]
+Done!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/matgl/utils/io.py:184: UserWarning: Incompatible model version detected! The code will continue to load the model but it is recommended that you provide a path to an updated model, increment your @model_version in model.json if you are confident that the changes are not problematic, or clear your ~/.matgl cache using `python -c "import matgl; matgl.clear_cache()"`
+  _check_ver(cls_, v)  # Check version of any subclasses too.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/plugins/environments/slurm.py:204: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python /mnt/tank/scratch/aartamonov/itmo_nnchem/src/perovsk ...
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/loggers/csv_logs.py:268: Experiment logs directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B2000_seed42/ exists and is not empty. Previous log files in this directory will be deleted when the new ones are saved!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:881: Checkpoint directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B2000_seed42/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+[rank: 0] Seed set to 42
+Processing...
+  0%|          | 0/8000 [00:00<?, ?it/s]  5%|▌         | 431/8000 [00:00<00:01, 4299.54it/s] 11%|█         | 864/8000 [00:00<00:01, 4315.19it/s] 16%|█▌        | 1296/8000 [00:00<00:01, 4255.30it/s] 22%|██▏       | 1722/8000 [00:00<00:01, 3568.40it/s] 27%|██▋       | 2150/8000 [00:00<00:01, 3795.10it/s] 32%|███▏      | 2587/8000 [00:00<00:01, 3973.89it/s] 38%|███▊      | 3022/8000 [00:00<00:01, 4090.05it/s] 43%|████▎     | 3460/8000 [00:00<00:01, 4176.37it/s] 49%|████▉     | 3900/8000 [00:00<00:00, 4242.62it/s] 54%|█████▍    | 4341/8000 [00:01<00:00, 4291.82it/s] 60%|█████▉    | 4785/8000 [00:01<00:00, 4335.73it/s] 65%|██████▌   | 5227/8000 [00:01<00:00, 4359.63it/s] 71%|███████   | 5669/8000 [00:01<00:00, 4376.74it/s] 76%|███████▋  | 6115/8000 [00:01<00:00, 4398.97it/s] 82%|████████▏ | 6557/8000 [00:01<00:00, 4402.62it/s] 88%|████████▊ | 7001/8000 [00:01<00:00, 4412.43it/s] 93%|█████████▎| 7444/8000 [00:01<00:00, 4416.33it/s] 99%|█████████▊| 7887/8000 [00:01<00:00, 4418.50it/s]100%|██████████| 8000/8000 [00:01<00:00, 4255.34it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 428/1893 [00:00<00:00, 4274.64it/s] 46%|████▌     | 864/1893 [00:00<00:00, 4319.28it/s] 69%|██████▊   | 1301/1893 [00:00<00:00, 4340.01it/s] 92%|█████████▏| 1736/1893 [00:00<00:00, 4343.66it/s]100%|██████████| 1893/1893 [00:00<00:00, 4333.12it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 428/1893 [00:00<00:00, 4275.02it/s] 45%|████▌     | 860/1893 [00:00<00:00, 4299.93it/s] 69%|██████▊   | 1297/1893 [00:00<00:00, 4331.49it/s] 91%|█████████▏| 1731/1893 [00:00<00:00, 4328.79it/s]100%|██████████| 1893/1893 [00:00<00:00, 4321.62it/s]
+Done!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/matgl/utils/io.py:184: UserWarning: Incompatible model version detected! The code will continue to load the model but it is recommended that you provide a path to an updated model, increment your @model_version in model.json if you are confident that the changes are not problematic, or clear your ~/.matgl cache using `python -c "import matgl; matgl.clear_cache()"`
+  _check_ver(cls_, v)  # Check version of any subclasses too.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/plugins/environments/slurm.py:204: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python /mnt/tank/scratch/aartamonov/itmo_nnchem/src/perovsk ...
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/loggers/csv_logs.py:268: Experiment logs directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B8000_seed42/ exists and is not empty. Previous log files in this directory will be deleted when the new ones are saved!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:881: Checkpoint directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_B8000_seed42/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+[rank: 0] Seed set to 42
+Processing...
+  0%|          | 0/15142 [00:00<?, ?it/s]  3%|▎         | 435/15142 [00:00<00:03, 4347.74it/s]  6%|▌         | 874/15142 [00:00<00:03, 4370.40it/s]  9%|▊         | 1319/15142 [00:00<00:03, 4405.05it/s] 12%|█▏        | 1765/15142 [00:00<00:03, 4425.94it/s] 15%|█▍        | 2211/15142 [00:00<00:02, 4435.88it/s] 18%|█▊        | 2659/15142 [00:00<00:02, 4449.24it/s] 20%|██        | 3104/15142 [00:00<00:02, 4442.76it/s] 23%|██▎       | 3552/15142 [00:00<00:02, 4453.22it/s] 26%|██▋       | 3998/15142 [00:00<00:02, 4448.03it/s] 29%|██▉       | 4447/15142 [00:01<00:02, 4459.07it/s] 32%|███▏      | 4900/15142 [00:01<00:02, 4480.38it/s] 35%|███▌      | 5349/15142 [00:01<00:02, 4475.66it/s] 38%|███▊      | 5806/15142 [00:01<00:02, 4502.04it/s] 41%|████▏     | 6258/15142 [00:01<00:01, 4506.53it/s] 44%|████▍     | 6709/15142 [00:01<00:01, 4500.82it/s] 47%|████▋     | 7166/15142 [00:01<00:01, 4520.32it/s] 50%|█████     | 7621/15142 [00:01<00:01, 4528.05it/s] 53%|█████▎    | 8078/15142 [00:01<00:01, 4538.09it/s] 56%|█████▋    | 8537/15142 [00:01<00:01, 4553.14it/s] 59%|█████▉    | 8993/15142 [00:02<00:01, 4551.83it/s] 62%|██████▏   | 9452/15142 [00:02<00:01, 4560.98it/s] 65%|██████▌   | 9911/15142 [00:02<00:01, 4567.82it/s] 68%|██████▊   | 10368/15142 [00:02<00:01, 4566.71it/s] 71%|███████▏  | 10826/15142 [00:02<00:00, 4570.28it/s] 75%|███████▍  | 11284/15142 [00:02<00:00, 4562.67it/s] 78%|███████▊  | 11745/15142 [00:02<00:00, 4576.11it/s] 81%|████████  | 12203/15142 [00:02<00:00, 4233.74it/s] 83%|████████▎ | 12632/15142 [00:02<00:00, 4153.00it/s] 86%|████████▌ | 13051/15142 [00:02<00:00, 4085.71it/s] 89%|████████▉ | 13462/15142 [00:03<00:00, 4020.88it/s] 92%|█████████▏| 13866/15142 [00:03<00:00, 3977.71it/s] 94%|█████████▍| 14265/15142 [00:03<00:00, 3958.27it/s] 97%|█████████▋| 14667/15142 [00:03<00:00, 3973.54it/s]100%|█████████▉| 15073/15142 [00:03<00:00, 3996.39it/s]100%|██████████| 15142/15142 [00:03<00:00, 4354.99it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 431/1893 [00:00<00:00, 4305.83it/s] 46%|████▌     | 862/1893 [00:00<00:00, 4306.78it/s] 69%|██████▉   | 1303/1893 [00:00<00:00, 4350.90it/s] 92%|█████████▏| 1741/1893 [00:00<00:00, 4360.18it/s]100%|██████████| 1893/1893 [00:00<00:00, 4348.24it/s]
+Done!
+Processing...
+  0%|          | 0/1893 [00:00<?, ?it/s] 23%|██▎       | 429/1893 [00:00<00:00, 4286.63it/s] 46%|████▌     | 871/1893 [00:00<00:00, 4359.96it/s] 69%|██████▉   | 1312/1893 [00:00<00:00, 4380.74it/s] 93%|█████████▎| 1755/1893 [00:00<00:00, 4397.91it/s]100%|██████████| 1893/1893 [00:00<00:00, 4372.76it/s]
+Done!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/matgl/utils/io.py:184: UserWarning: Incompatible model version detected! The code will continue to load the model but it is recommended that you provide a path to an updated model, increment your @model_version in model.json if you are confident that the changes are not problematic, or clear your ~/.matgl cache using `python -c "import matgl; matgl.clear_cache()"`
+  _check_ver(cls_, v)  # Check version of any subclasses too.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/plugins/environments/slurm.py:204: The `srun` command is available on your system but is not used. HINT: If your intention is to run Lightning on SLURM, prepend your python command with `srun` like so: srun python /mnt/tank/scratch/aartamonov/itmo_nnchem/src/perovsk ...
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+💡 Tip: For seamless cloud uploads and versioning, try installing [litmodels](https://pypi.org/project/litmodels/) to enable LitModelCheckpoint, which syncs automatically with the Lightning model registry.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/fabric/loggers/csv_logs.py:268: Experiment logs directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_Bfull_seed42/ exists and is not empty. Previous log files in this directory will be deleted when the new ones are saved!
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/callbacks/model_checkpoint.py:881: Checkpoint directory /mnt/tank/scratch/aartamonov/itmo_nnchem/outputs/runs/history/element_set_matgl_megnet_frozen_Bfull_seed42/checkpoints exists and is not empty.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0]
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+/mnt/tank/scratch/aartamonov/conda_envs/perovskite_screening/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:434: The 'train_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=9` in the `DataLoader` to improve performance.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
+Evaluating MatGL predict_structure on CPU to avoid CUDA/CPU device mismatch.
